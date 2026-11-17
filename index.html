@@ -163,7 +163,10 @@ tr.flat .cell{border-style:dotted}
 .mini i{height:10px;border-radius:2px;background:var(--line)}
 .mini i.x{background:var(--brass)} .mini i.s{background:var(--brass);opacity:.45}
 .rgrid{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:4px}
-.rcell{border-radius:8px;min-height:64px;display:flex;flex-direction:column;justify-content:space-between;align-items:center;padding:6px 2px;border:2px solid var(--line);background:var(--sunk);font-family:var(--f-mono);font-weight:700}
+.span{grid-column:1/-1}
+.staff{width:100%;min-height:120px;background:var(--surface);border-radius:10px}
+.staff svg{display:block;max-width:100%;height:auto}
+.rcell{border-radius:8px;min-height:48px;display:flex;flex-direction:column;justify-content:space-between;align-items:center;padding:6px 2px;border:2px solid var(--line);background:var(--sunk);font-family:var(--f-mono);font-weight:700}
 .rcell .cnt{font-size:16px;color:var(--muted)}
 .rcell.down .cnt{color:var(--ink)}
 .rcell .mk{width:70%;height:12px;border-radius:6px}
@@ -279,16 +282,17 @@ footer{font-size:12px;color:var(--muted)}
 
   <!-- リズム -->
   <main class="grid" id="view-rhythm" hidden>
+    <section class="panel stage o1 span">
+      <div class="row" style="justify-content:space-between">
+        <span class="turn" id="turn"><i></i><span>再生でスタート</span></span>
+        <span class="barno" id="rBarno"></span>
+      </div>
+      <div class="now"><div class="chord sm" id="rChord"></div><div class="next" id="rNote"></div></div>
+      <div class="staff" id="staff" role="img" aria-label="リズム課題の楽譜（ヘ音記号）"></div>
+      <div class="rgrid" id="rgrid"></div>
+      <div class="tip" id="rTip"></div>
+    </section>
     <div class="col">
-      <section class="panel stage o1">
-        <div class="row" style="justify-content:space-between">
-          <span class="turn" id="turn"><i></i><span>再生でスタート</span></span>
-          <span class="barno" id="rBarno"></span>
-        </div>
-        <div class="rgrid" id="rgrid"></div>
-        <div class="now"><div class="chord sm" id="rChord"></div><div class="next" id="rNote"></div></div>
-        <div class="tip" id="rTip"></div>
-      </section>
       <section class="panel o3">
         <h2>練習のしかた</h2>
         <div class="field"><span class="lbl">モード</span>
@@ -374,6 +378,7 @@ footer{font-size:12px;color:var(--muted)}
   <footer>伴奏を鳴らしながらマイクを使うときは、イヤホンで伴奏を聴くと判定が正確になります。音名は実音です（B♭管のトロンボーンは移調なしで読めます）。</footer>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/vexflow@4.2.3/build/cjs/vexflow.js"></script>
 <script>
 (()=>{
 // ================= 音楽の基礎データ =================
@@ -640,11 +645,64 @@ function renderPlist(){
   $('plist').innerHTML=PATS.map((p,i)=>`<button class="pitem" data-i="${i}" aria-pressed="${i===S.rPat}"><span class="lv">${i+1}</span><span class="nm">${p.n}</span><span class="mini">${[...p.p].map(ch=>`<i class="${ch==='x'?'x':ch==='-'?'s':''}"></i>`).join('')}</span></button>`).join('');
   $('plist').querySelectorAll('.pitem').forEach(b=>b.onclick=()=>{S.rPat=+b.dataset.i;save();renderPlist();renderRgrid(-1);$('rTip').textContent=PATS[S.rPat].tip;resetTiming()});
 }
+// ---- 五線譜（ヘ音記号）----
+const DUR={1:'8',2:'q',3:'qd',4:'h',6:'hd',8:'w'};
+function rhythmEvents(p){const ev=[];let i=0;
+  while(i<8){if(p[i]==='x'){let l=1;while(i+l<8&&p[i+l]==='-')l++;ev.push({start:i,len:l,rest:false});i+=l}
+    else{let l=1;while(i+l<8&&p[i+l]!=='x')l++;ev.push({start:i,len:l,rest:true});i+=l}}return ev}
+function pieces(e){
+  let segs=[[e.start,e.len]];
+  const whole=e.start===0&&(e.len===8||e.len===6);
+  if(!whole&&e.start<4&&e.start+e.len>4)segs=[[e.start,4-e.start],[4,e.start+e.len-4]];
+  const out=[];
+  for(const [s0,l0] of segs){let st=s0,rem=l0;
+    while(rem>0){let d;
+      if(e.rest)d=st%2?1:(rem>=4&&st%4===0)?4:rem>=2?2:1;
+      else d=[8,6,4,3,2,1].find(x=>x<=rem&&!(x>=4&&st%4!==0)&&!(x===3&&st%2));
+      out.push([st,d]);st+=d;rem-=d}}
+  return out}
+let staffW=0;
+function renderStaff(now){
+  const el=$('staff');const VF=window.Vex&&window.Vex.Flow;
+  if(!VF){el.hidden=true;return}
+  const c=chords[cur];if(!c)return;
+  try{
+    const cs=getComputedStyle(document.documentElement),ink=cs.getPropertyValue('--ink').trim()||'#000',hot=cs.getPropertyValue('--hit').trim()||'#26f';
+    const W=Math.max(280,el.clientWidth||600),s=Math.min(1.7,Math.max(1,W/480)),H=Math.round(106*s);
+    el.innerHTML='';
+    const r=new VF.Renderer(el,VF.Renderer.Backends.SVG);r.resize(W,H);const cx=r.getContext();cx.scale(s,s);cx.setFillStyle(ink);cx.setStrokeStyle(ink);
+    const sw=W/s-4,stave=new VF.Stave(2,-12,sw);stave.addClef('bass').addTimeSignature('4/4');
+    stave.setStyle({fillStyle:ink,strokeStyle:ink});stave.setContext(cx).draw();
+    const p=PATS[S.rPat].p,notes=[],ties=[],slotIdx=[];let k=0;
+    for(const e of rhythmEvents(p)){let prev=null;const m=e.rest?null:pitchFor(c,k);
+      for(const [st,d] of pieces(e)){let n;
+        if(e.rest)n=new VF.StaveNote({clef:'bass',keys:['d/3'],duration:DUR[d]+'r'});
+        else{const nmx=nm(m,c.sp),acc=nmx[1]==='♭'?'b':nmx[1]==='♯'?'#':'';
+          n=new VF.StaveNote({clef:'bass',keys:[nmx[0].toLowerCase()+acc+'/'+(Math.floor(m/12)-1)],duration:DUR[d],auto_stem:true});
+          if(acc&&!prev)n.addModifier(new VF.Accidental(acc),0);
+          if(prev)ties.push(new VF.StaveTie({first_note:prev,last_note:n,first_indices:[0],last_indices:[0]}));prev=n}
+        if(d===3||d===6)VF.Dot.buildAndAttach([n],{all:true});
+        for(let j=st;j<st+d;j++)slotIdx[j]=notes.length;
+        notes.push(n)}
+      if(!e.rest)k++}
+    const act=now>=0?slotIdx[now]:-1;
+    notes.forEach((n,i)=>{const col=i===act?hot:ink;n.setStyle({fillStyle:col,strokeStyle:col});n.setLedgerLineStyle&&n.setLedgerLineStyle({strokeStyle:col,fillStyle:col})});
+    const voice=new VF.Voice({num_beats:4,beat_value:4});voice.setMode(VF.Voice.Mode.SOFT);voice.addTickables(notes);
+    const beams=VF.Beam.generateBeams(notes.filter(n=>!n.isRest()),{groups:[new VF.Fraction(2,8)]});
+    new VF.Formatter().joinVoices([voice]).format([voice],sw-(stave.getNoteStartX()-2)-16);
+    voice.draw(cx,stave);
+    beams.forEach(b=>{b.setStyle({fillStyle:ink,strokeStyle:ink});b.setContext(cx).draw()});
+    ties.forEach(t=>t.setContext(cx).draw());
+    el.hidden=false;
+  }catch(err){el.hidden=true;console.warn(err)}
+}
+window.addEventListener('resize',()=>{if(S.view==='rhythm'&&!playing)renderStaff(-1)});
 function renderRgrid(now){
+  renderStaff(now);
   const p=PATS[S.rPat].p;
   $('rgrid').innerHTML=[...p].map((ch,i)=>`<div class="rcell ${ch==='x'?'x':ch==='-'?'s':''} ${i%2?'':'down'} ${i===now?'now':''}"><span class="cnt">${COUNT[i]}</span><span class="mk"></span></div>`).join('');
 }
-function segInit(id,key){$(id).querySelectorAll('.chip').forEach(b=>{b.setAttribute('aria-pressed',b.dataset.v===S[key]);b.onclick=()=>{S[key]=b.dataset.v;save();segInit(id,key);if(key==='rPitch')showRNote(cur)}})}
+function segInit(id,key){$(id).querySelectorAll('.chip').forEach(b=>{b.setAttribute('aria-pressed',b.dataset.v===S[key]);b.onclick=()=>{S[key]=b.dataset.v;save();segInit(id,key);if(key==='rPitch'){showRNote(cur);renderStaff(-1)}}})}
 function rIntervals(c){const t=Q[c.q].tones;return S.rPitch==='root'?[0]:S.rPitch==='third'?[t[1]]:S.rPitch==='arp9'?[t[1],t[2],t[3],14]:t}
 function pitchFor(c,k){
   const ivs=rIntervals(c),iv=ivs[k%ivs.length];
