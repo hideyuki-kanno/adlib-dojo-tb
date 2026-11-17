@@ -1,0 +1,14 @@
+{
+  "name": "アドリブ道場（トロンボーン）",
+  "short_name": "アドリブ道場",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0f141a",
+  "theme_color": "#141b24",
+  "lang": "ja",
+  "icons": [
+    {"src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable"}
+  ]
+}
