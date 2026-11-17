@@ -2,7 +2,7 @@
 
 トロンボーンのアドリブ（即興演奏）を練習するためのWebアプリです。Androidのスマホ・タブレットのChromeで動きます。
 
-公開ページ: https://hideyuki-kanno.github.io/adlib-dojo-tb/
+公開ページ: https://adlib.mongogeso.org/
 
 ## できること
 
