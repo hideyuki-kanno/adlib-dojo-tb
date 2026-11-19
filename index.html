@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#141b24">
+<meta name="theme-color" content="#1d1915">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <style>body{margin:0}[hidden]{display:none!important}</style>
@@ -13,38 +13,44 @@
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=JetBrains+Mono:wght@500;700&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;700&family=DM+Serif+Display:ital@0;1&family=Dela+Gothic+One&family=Courier+Prime:wght@400;700&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Music&text=%E2%99%AD%E2%99%AF%E2%99%AE&display=swap">
 <style>
 /* Layout: 譜面台に置いたAndroid端末から読める大きなコード表示 + 倍音×ポジション盤。3つのタブ（伴奏／リズム／楽譜）。タブレット横向きは2列。 */
 :root{
-  --bg:#e9edf1; --surface:#ffffff; --sunk:#f3f5f8; --ink:#141b24; --muted:#5a6573; --line:#cfd6de;
-  --brass:#9a6400; --brass-soft:#f6e7c4; --on-brass:#ffffff;
-  --root:#c43d16; --on-root:#ffffff;
-  --guide:#d99a1e; --on-guide:#1d1404;
-  --tone:#11776f; --on-tone:#ffffff;
-  --scale:#d9e1ea; --on-scale:#1f2a36;
-  --hit:#2563eb; --ok:#1d8048; --warn:#b4231a;
-  --f-display:"Bricolage Grotesque","Zen Kaku Gothic New",system-ui,sans-serif;
-  --f-body:"Zen Kaku Gothic New","Hiragino Sans","Noto Sans JP",system-ui,sans-serif;
-  --f-mono:"JetBrains Mono",ui-monospace,"Roboto Mono",monospace;
-  --r:12px;
+  --bg:#ebe1cb; --surface:#f7f0e1; --sunk:#e9dec6; --ink:#1d1915; --muted:#6c5f4c; --line:#cbb994;
+  --brass:#b4521a; --brass-soft:#f0d6b2; --on-brass:#fbf5ea;
+  --root:#9b2a1c; --on-root:#fbf5ea;
+  --guide:#d79f1a; --on-guide:#1d1404;
+  --tone:#2a6b66; --on-tone:#fbf5ea;
+  --scale:#dccdaa; --on-scale:#2b241b;
+  --hit:#1f5fa6; --ok:#3d7a2e; --warn:#a8281c;
+  --stripe1:#b4521a; --stripe2:#d79f1a; --stripe3:#2a6b66;
+  --f-display:"Oswald","Noto Music","Zen Kaku Gothic New",system-ui,sans-serif;
+  --f-logo:"Dela Gothic One","Zen Kaku Gothic New",sans-serif;
+  --f-serif:"DM Serif Display","Noto Music",Georgia,serif;
+  --f-body:"Noto Music","Zen Kaku Gothic New","Hiragino Sans","Noto Sans JP",system-ui,sans-serif;
+  --f-mono:"Courier Prime","Noto Music",ui-monospace,"Roboto Mono",monospace;
+  --r:6px;
 }
 @media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
-  --bg:#0f141a; --surface:#18202a; --sunk:#131a22; --ink:#e8edf3; --muted:#97a3b1; --line:#2a3440;
-  --brass:#e6ad40; --brass-soft:#3a2d12; --on-brass:#1d1404;
-  --root:#f06a3c; --on-root:#1a0b05;
-  --guide:#e6ad40; --on-guide:#1d1404;
-  --tone:#3cb3a8; --on-tone:#06201d;
-  --scale:#263240; --on-scale:#d5dee8;
-  --hit:#6ea0ff; --ok:#4cc27e; --warn:#ff7b6b; color-scheme:dark }}
+  --bg:#14110d; --surface:#1f1a14; --sunk:#181410; --ink:#f1e7d3; --muted:#a8987d; --line:#3b3226;
+  --brass:#e58a3a; --brass-soft:#3d2614; --on-brass:#1a0f06;
+  --root:#e0623f; --on-root:#1a0905;
+  --guide:#e8b53e; --on-guide:#1d1404;
+  --tone:#55aca2; --on-tone:#06201d;
+  --scale:#2f281f; --on-scale:#e2d6bf;
+  --hit:#72aef0; --ok:#7cc06a; --warn:#ff7f6b;
+  --stripe1:#e58a3a; --stripe2:#e8b53e; --stripe3:#55aca2; color-scheme:dark }}
 :root[data-theme="dark"]{
-  --bg:#0f141a; --surface:#18202a; --sunk:#131a22; --ink:#e8edf3; --muted:#97a3b1; --line:#2a3440;
-  --brass:#e6ad40; --brass-soft:#3a2d12; --on-brass:#1d1404;
-  --root:#f06a3c; --on-root:#1a0b05;
-  --guide:#e6ad40; --on-guide:#1d1404;
-  --tone:#3cb3a8; --on-tone:#06201d;
-  --scale:#263240; --on-scale:#d5dee8;
-  --hit:#6ea0ff; --ok:#4cc27e; --warn:#ff7b6b; color-scheme:dark }
+  --bg:#14110d; --surface:#1f1a14; --sunk:#181410; --ink:#f1e7d3; --muted:#a8987d; --line:#3b3226;
+  --brass:#e58a3a; --brass-soft:#3d2614; --on-brass:#1a0f06;
+  --root:#e0623f; --on-root:#1a0905;
+  --guide:#e8b53e; --on-guide:#1d1404;
+  --tone:#55aca2; --on-tone:#06201d;
+  --scale:#2f281f; --on-scale:#e2d6bf;
+  --hit:#72aef0; --ok:#7cc06a; --warn:#ff7f6b;
+  --stripe1:#e58a3a; --stripe2:#e8b53e; --stripe3:#55aca2; color-scheme:dark }
 
 *{box-sizing:border-box}
 body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.55;
@@ -210,6 +216,76 @@ table.an{border-collapse:collapse;width:100%;min-width:560px;font-size:14px}
 .patterns li{margin-left:1.2em}
 .explain{white-space:pre-wrap;font-size:14px;line-height:1.7;background:var(--sunk);border-radius:10px;padding:12px}
 footer{font-size:12px;color:var(--muted)}
+
+/* ===== 80年代ジャズ・レコードジャケット風の見た目（色・書体・装飾のみ） ===== */
+:root{ --jacket:#1d1915; --on-jacket:#f3ead6; --jacket-muted:#b9a98a; --jacket-line:#4a3f31; --jacket-accent:#e8b53e;
+  --grain:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .35 0 0 0 0 .25 0 0 0 0 .12 0 0 0 .09 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E") }
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){ --jacket:#0b0907; --jacket-line:#3b3226 }}
+:root[data-theme="dark"]{ --jacket:#0b0907; --jacket-line:#3b3226 }
+body{background-color:var(--bg);background-image:var(--grain)}
+
+/* ヘッダー：ジャケットの帯 */
+.top{position:relative;background:var(--jacket);color:var(--on-jacket);border-radius:var(--r);padding:14px 16px 22px;border:1px solid var(--jacket-line)}
+.top::after{content:"";position:absolute;left:0;right:0;bottom:0;height:10px;border-radius:0 0 var(--r) var(--r);
+  background:linear-gradient(to bottom,var(--stripe1) 0 33.3%,var(--stripe2) 33.3% 66.6%,var(--stripe3) 66.6% 100%)}
+.brand{gap:12px}
+.brand svg{color:var(--jacket-accent)}
+.brand h1{font-family:var(--f-logo);font-weight:400;font-size:25px;letter-spacing:.04em;line-height:1.15}
+.brand small{color:var(--jacket-muted);font-size:12px;margin-top:2px}
+.brand small .en{display:block;font-family:var(--f-serif);font-style:italic;font-size:15px;color:var(--jacket-accent);letter-spacing:.01em;line-height:1.2}
+.tabs{background:transparent;border:1px solid var(--jacket-line);border-radius:4px;padding:3px;gap:3px}
+.tab{border-radius:3px;color:var(--jacket-muted);letter-spacing:.06em}
+.tab:hover{color:var(--on-jacket)}
+.tab[aria-selected="true"]{background:var(--jacket-accent);color:#1d1404}
+
+/* 見出し */
+h2{font-family:var(--f-body);font-weight:700;font-size:13px;letter-spacing:.14em;color:var(--ink);display:flex;align-items:center;gap:8px}
+h2::before{content:"";flex:0 0 18px;height:3px;background:var(--brass)}
+.maphead h2{flex:1 1 auto}
+h3{font-family:var(--f-body);font-weight:700;letter-spacing:.06em;border-bottom:2px solid var(--ink);padding-bottom:6px}
+
+/* 面・ボタン */
+.controls,.panel{border-color:var(--line);box-shadow:0 2px 0 var(--line)}
+.controls{border-top:4px solid var(--ink)}
+.field label,.field .lbl{letter-spacing:.08em;font-weight:500}
+select,.txt,textarea{border-radius:4px}
+.chip{border-radius:4px}
+.chip[aria-pressed="true"]{font-weight:700}
+.play{border-radius:4px;letter-spacing:.2em;padding:0 28px;box-shadow:0 3px 0 rgba(0,0,0,.25)}
+.btn{border-radius:4px;letter-spacing:.04em}
+.micbtn{border-radius:4px}
+.tn,.cell,.bar,.pitem,.rcell,.tip,.target,.note-msg,.tscore div,.explain{border-radius:4px}
+.tn{font-family:var(--f-display);font-weight:500;font-size:19px}
+.cell{font-family:var(--f-display);font-weight:500;font-size:16px}
+.slide th.pos{font-family:var(--f-display);font-weight:700;font-size:15px}
+.legend i{border-radius:2px}
+.bar{font-weight:500;font-size:16px}
+.pitem .lv{font-family:var(--f-display);font-size:18px}
+.keybadge{font-weight:700}
+.an td.ch{font-weight:500;font-size:18px}
+.readout .note{font-weight:700}
+.tscore b{font-family:var(--f-display);font-weight:700}
+
+/* 大きなコード表示：黒いジャケットに大きな文字 */
+.stage{background:var(--jacket);color:var(--on-jacket);border-color:var(--jacket-line);position:relative;overflow:hidden}
+.stage::after{content:"";position:absolute;right:-70px;top:-70px;width:200px;height:200px;border-radius:50%;pointer-events:none;
+  background:repeating-radial-gradient(circle,transparent 0 5px,rgba(255,255,255,.035) 5px 6px);border:1px solid rgba(255,255,255,.05)}
+.stage > *{position:relative;z-index:1}
+.chord{font-weight:700;letter-spacing:0;text-transform:none}
+.chord .q{font-weight:500;color:var(--jacket-accent)}
+.stage .next,.stage .barno,.stage .analysisline{color:var(--jacket-muted)}
+.stage .next b,.stage .analysisline b{color:var(--on-jacket);font-weight:500}
+.stage .beat{border-color:var(--jacket-line)}
+.stage .beat.on{background:var(--jacket-accent);border-color:var(--jacket-accent)}
+.stage .target{background:rgba(255,255,255,.07);color:var(--on-jacket)}
+.stage .target strong{color:var(--jacket-accent)}
+.stage .countin{color:var(--jacket-accent)}
+.stage .staff{border-radius:4px}
+.stage .turn i{background:var(--jacket-muted)}
+.stage .turn.call i{background:var(--tone)} .stage .turn.resp i{background:var(--root)} .stage .turn.along i{background:var(--jacket-accent)}
+.stage .rcell.now{background:var(--surface)}
+.stage .tip{color:var(--ink)}
+footer{font-family:var(--f-body);letter-spacing:.04em;border-top:1px solid var(--line);padding-top:10px}
 @media (prefers-reduced-motion:reduce){ *{transition:none!important} }
 </style>
 
@@ -217,7 +293,7 @@ footer{font-size:12px;color:var(--muted)}
   <header class="top">
     <div class="brand">
       <svg viewBox="0 0 88 44" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" aria-hidden="true"><path d="M4 14h56M4 30h56M60 14v16M70 22h14M76 10l8 12-8 12"/></svg>
-      <h1>アドリブ道場<small>トロンボーンのための即興練習</small></h1>
+      <h1>アドリブ道場<small><span class="en">Trombone Ad-lib Sessions</span>トロンボーンのための即興練習</small></h1>
     </div>
     <nav class="tabs" role="tablist" aria-label="練習メニュー">
       <button class="tab" role="tab" id="tab-practice" data-v="practice">伴奏で練習</button>
