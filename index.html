@@ -741,12 +741,13 @@ function metalBuf(sr,o){const r=rng(o.seed),len=Math.floor(sr*o.len),d=new Float
 function toBuf(d){const b=ctx.createBuffer(1,d.length,ctx.sampleRate);b.getChannelData(0).set(d);return b}
 function initSounds(){const sr=ctx.sampleRate;SND={bass:{},
   ride:[1,2].map(s=>toBuf(metalBuf(sr,{seed:s*977,len:2.0,n:120,lo:320,hi:13000,tilt:.35,tau:1.6,tdec:.45,atk:.012,atkAmp:2.2}))),
+  tick:toBuf(metalBuf(sr,{seed:91,len:.08,n:40,lo:2200,hi:9000,tilt:.2,tau:.01,tdec:.3,atk:.003,atkAmp:1.5})),
   bell:toBuf(metalBuf(sr,{seed:55,len:1.2,n:8,lo:520,hi:1900,tilt:0,tau:.9,tdec:.2,atk:.004,atkAmp:.6})),
   hat:[7,8].map(s=>toBuf(metalBuf(sr,{seed:s*131,len:.25,n:70,lo:2400,hi:14000,tilt:.1,tau:.035,tdec:.3,atk:.02,atkAmp:3}))),
   kick:toBuf((()=>{const len=Math.floor(sr*.4),d=new Float32Array(len);let ph=0;for(let i=0;i<len;i++){const t=i/sr,f=46+40*Math.exp(-t*40);ph+=2*Math.PI*f/sr;d[i]=Math.sin(ph)*Math.exp(-t*9)*(1-Math.exp(-t*600))}return d})())}}
 // ウッドベース：弦をはじいた振動をシミュレーション（Karplus-Strong方式）して音ごとに波形を作る
 function bassBuf(m){if(SND.bass[m])return SND.bass[m];const sr=ctx.sampleRate,f=hz(m),L=sr/f-.5,N=Math.floor(L),fr=L-N,len=Math.floor(sr*2.2);
-  const y=new Float32Array(len),r=rng(m*7919),T60=2.4-(m-33)*.03,R=Math.pow(10,-3/(f*T60));
+  const y=new Float32Array(len),r=rng(m*7919),T60=3.2-(m-33)*.04,R=Math.pow(10,-3/(f*T60));
   // はじく力：なめらかにしたノイズ＋指で弾く位置（弦の端から約1/5）による倍音の欠け
   const ex=new Float32Array(N+2);let lp=0;for(let i=0;i<ex.length;i++){lp+=(r()*2-1-lp)*.35;ex[i]=lp}
   const P=Math.max(1,Math.round(N*.2));for(let i=ex.length-1;i>=P;i--)ex[i]-=ex[i-P];
@@ -762,16 +763,23 @@ function play(buf,t,gain,dest,o={}){const s=ctx.createBufferSource();s.buffer=bu
 const hum=v=>v*(.85+Math.random()*.3);
 // ライド（レガート・スティック）。表拍はうっすらバスドラム（フェザリング）も入れる
 function ride(t,peak,onBeat){const v=hum(peak/.16);
-  play(SND.ride[Math.floor(Math.random()*2)],t,.12*v,master,{rate:.98+Math.random()*.04,filters:[['highpass',380],['peaking',5200,-3,.8]],cut:1.6,rel:.5});
-  play(SND.bell,t,.02*v,master,{filters:[['highpass',500]]});
+  play(SND.ride[Math.floor(Math.random()*2)],t,.12*v,master,{rate:.98+Math.random()*.04,filters:[['highpass',380]],cut:1.2,rel:.4});
+  play(SND.tick,t,.09*v,master,{filters:[['highpass',1500],['peaking',4200,5,1.4]]});
+  play(SND.bell,t,.035*v,master,{filters:[['highpass',500]]});
   if(onBeat)play(SND.kick,t,.14*hum(1),master,{filters:[['lowpass',260]]})}
 // ハイハットを足で閉じる「チッ」
 function hatFoot(t,peak){play(SND.hat[Math.floor(Math.random()*2)],t,hum(peak/.08)*.16,master,{filters:[['highpass',1800],['peaking',7500,4,1.2]]})}
 // ドラムの呼び出し口（scheduleBeat からの呼び方はそのまま）：bandpass=ハイハット、それ以外=ライド
 function noise(t,freq,peak,dec,type='highpass'){if(!SND)initSounds();if(type==='bandpass')hatFoot(t,peak);else ride(t,peak,dec>=.3)}
 function click(t,acc){const o=ctx.createOscillator(),g=ctx.createGain();o.frequency.value=acc?1800:1200;env(g,t,.002,.35,.06);o.connect(g).connect(master);o.start(t);o.stop(t+.08)}
-function bassNote(m,t,dur){if(!SND)initSounds();
-  play(bassBuf(m),t,(.92+Math.random()*.16)*2,master,{filters:[['peaking',95,4,1],['peaking',700,-4,.9],['lowpass',1500,null,.5]],cut:Math.max(.1,dur),rel:.09})}
+function bassNote(m,t,dur){if(!SND)initSounds();const v=.92+Math.random()*.16;
+  // はじいた弦の音（ウッドベース）
+  play(bassBuf(m),t,v*1.5,master,{filters:[['peaking',95,4,1],['peaking',700,-2,.9],['lowpass',2200,null,.5]],cut:Math.max(.1,dur),rel:.09});
+  // 音の伸びと太さを足すための、なめらかな電子音の層
+  const f=ctx.createBiquadFilter();f.type='lowpass';f.frequency.value=600;const g=ctx.createGain();
+  g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(.28*v,t+.02);g.gain.exponentialRampToValueAtTime(.1*v,t+dur*.9);g.gain.exponentialRampToValueAtTime(.0001,t+dur+.06);
+  for(const [type,lv] of [['triangle',1],['sawtooth',.3]]){const o=ctx.createOscillator();o.type=type;o.frequency.value=hz(m);const og=ctx.createGain();og.gain.value=lv;o.connect(og).connect(f);o.start(t);o.stop(t+dur+.1)}
+  f.connect(g).connect(master)}
 function comp(c,t,dur){const v=Q[c.q].v;let base=48+c.pc;while(base+v[0]<51)base+=12;while(base+v[0]>=63)base-=12;
   const f=ctx.createBiquadFilter();f.type='lowpass';f.frequency.value=2600;f.connect(master);
   for(const iv of v){const o=ctx.createOscillator(),g=ctx.createGain();o.type='triangle';o.frequency.value=hz(base+iv);
