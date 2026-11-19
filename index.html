@@ -74,6 +74,10 @@ select{background:var(--sunk);border:1px solid var(--line);border-radius:8px;pad
 input[type=range]{accent-color:var(--brass)}
 .tempo input[type=range]{width:150px}
 .tempo output{font-family:var(--f-mono);font-variant-numeric:tabular-nums;min-width:3.2em}
+.swingrow{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.swingrow input[type=range]{width:150px}
+.swingrow output{font-family:var(--f-mono);font-variant-numeric:tabular-nums;font-size:13px;min-width:7.5em}
+.swingrow .chip{padding:6px 10px;min-height:36px;font-size:12px}
 .parts{display:flex;gap:6px;flex-wrap:wrap}
 .chip{border:1px solid var(--line);background:var(--sunk);border-radius:999px;padding:8px 12px;min-height:40px;cursor:pointer;font-size:13px}
 .chip[aria-pressed="true"]{background:var(--brass-soft);border-color:var(--brass);color:var(--ink)}
@@ -227,6 +231,10 @@ footer{font-size:12px;color:var(--muted)}
     <div class="field"><label for="key">キー（実音）</label><select id="key"></select></div>
     <div class="field"><label for="tempo">テンポ</label>
       <div class="tempo"><input id="tempo" type="range" min="50" max="260" step="2" value="120"><output id="tempoOut">120</output></div></div>
+    <div class="field"><label for="swing">裏拍の位置（ハネ具合）</label>
+      <div class="swingrow"><input id="swing" type="range" min="50" max="80" step="1" value="67" list="swingTicks" aria-describedby="swingOut"><output id="swingOut"></output>
+        <datalist id="swingTicks"><option value="50"></option><option value="60"></option><option value="67"></option><option value="75"></option></datalist>
+        <button class="chip" data-sw="50">イーブン</button><button class="chip" data-sw="67">3連</button><button class="chip" data-sw="73">引っぱる</button></div></div>
     <div class="field"><span class="lbl">伴奏パート</span>
       <div class="parts">
         <button class="chip" id="pPiano" aria-pressed="true">ピアノ</button>
@@ -422,7 +430,7 @@ const RN=['I','♭II','II','♭III','III','IV','♯IV','V','♭VI','VI','♭VII'
 
 // ================= 状態 =================
 const S={view:'practice',prog:'one7',key:10,tempo:100,vol:70,parts:{piano:true,bass:true,drums:true},guideOnly:false,
-  rPat:0,rMode:'cr',rPitch:'root',demoVol:70,custom:null};
+  rPat:0,rMode:'cr',rPitch:'root',demoVol:70,swing:67,custom:null};
 try{const saved=JSON.parse(localStorage.getItem('tbn-adlib')||'{}');Object.assign(S,saved);S.parts=Object.assign({piano:true,bass:true,drums:true},saved.parts||{})}catch(e){}
 const save=()=>{try{localStorage.setItem('tbn-adlib',JSON.stringify(S))}catch(e){}};
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -567,6 +575,14 @@ $('prog').onchange=()=>{S.prog=$('prog').value;if(S.prog==='custom'&&S.custom){S
 $('key').onchange=()=>{S.key=+$('key').value;save();rebuild()};
 $('tempo').oninput=()=>{S.tempo=+$('tempo').value;$('tempoOut').textContent=S.tempo;save()};
 $('vol').oninput=()=>{S.vol=+$('vol').value;save();if(master)master.gain.value=S.vol/100};
+function swingLabel(v){const r=v/(100-v);
+  const name=v<=52?'イーブン':v<62?'軽いハネ':v<=69?'3連':v<=74?'3連より後ろ':'付点8分寄り';
+  return `${v}%・${r.toFixed(1)}:1（${name}）`}
+function setSwing(v){S.swing=Math.max(50,Math.min(80,Math.round(+v||67)));$('swing').value=S.swing;$('swingOut').textContent=swingLabel(S.swing);
+  document.querySelectorAll('[data-sw]').forEach(b=>b.setAttribute('aria-pressed',+b.dataset.sw===S.swing));save()}
+$('swing').oninput=()=>setSwing($('swing').value);
+document.querySelectorAll('[data-sw]').forEach(b=>b.onclick=()=>setSwing(b.dataset.sw));
+setSwing(S.swing);
 $('demoVol').oninput=()=>{S.demoVol=+$('demoVol').value;save();if(demoGain)demoGain.gain.value=S.demoVol/100*.9};
 
 function setView(v){
@@ -748,7 +764,7 @@ function tone(m){ensureCtx();horn(m,ctx.currentTime+.01,.9)}
 function pickBass(pc){let best=null;for(let m=33;m<=52;m++)if(m%12===pc&&(best===null||Math.abs(m-prevBass)<Math.abs(best-prevBass)))best=m;return best}
 let rMode='practice',expect=[];
 function scheduleBeat(b,t){
-  const spb=60/S.tempo,sw=spb*2/3;
+  const spb=60/S.tempo,sw=spb*(S.swing||67)/100; // 裏拍の位置（1拍に対する割合）
   if(b<4){click(t,b===0);uiQ.push({t,count:4-b});return}
   const pb=(b-4)%total,ci=beatChord[pb],c=chords[ci],bib=pb%4,inC=pb-chordStart[ci],nci=beatChord[(pb+1)%total];
   const barAbs=Math.floor((b-4)/4);
