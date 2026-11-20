@@ -398,6 +398,9 @@ footer{font-family:var(--f-body);letter-spacing:.04em;border-top:1px solid var(-
             <button class="chip" data-v="tones">コードトーン（1→3→5→7）</button>
             <button class="chip" data-v="arp9">アルペジオ（3→5→7→9）</button>
           </div></div>
+        <div class="field"><label for="demoSwing">お手本の裏拍の位置</label>
+          <div class="swingrow"><input id="demoSwing" type="range" min="50" max="80" step="1" value="67" list="swingTicks" aria-describedby="demoSwingOut"><output id="demoSwingOut"></output>
+            <button class="chip" data-dsw="0">伴奏と同じ</button><button class="chip" data-dsw="50">イーブン</button><button class="chip" data-dsw="67">3連</button><button class="chip" data-dsw="73">引っぱる</button></div></div>
         <div class="field"><label for="demoVol">お手本の音量</label><input id="demoVol" type="range" min="0" max="100" value="70" style="width:160px"></div>
       </section>
       <section class="panel o4">
@@ -512,7 +515,7 @@ const RN=['I','♭II','II','♭III','III','IV','♯IV','V','♭VI','VI','♭VII'
 
 // ================= 状態 =================
 const S={view:'practice',prog:'one7',key:10,tempo:100,vol:70,parts:{piano:true,bass:true,drums:true},guideOnly:false,
-  rPat:0,rMode:'cr',rPitch:'root',demoVol:70,swing:67,custom:null,sound:'real'};
+  rPat:0,rMode:'cr',rPitch:'root',demoVol:70,swing:67,demoSwing:0,custom:null,sound:'real'};
 try{const saved=JSON.parse(localStorage.getItem('tbn-adlib')||'{}');Object.assign(S,saved);S.parts=Object.assign({piano:true,bass:true,drums:true},saved.parts||{})}catch(e){}
 const save=()=>{try{localStorage.setItem('tbn-adlib',JSON.stringify(S))}catch(e){}};
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -661,10 +664,17 @@ function swingLabel(v){const r=v/(100-v);
   const name=v<=52?'イーブン':v<62?'軽いハネ':v<=69?'3連':v<=74?'3連より後ろ':'付点8分寄り';
   return `${v}%・${r.toFixed(1)}:1（${name}）`}
 function setSwing(v){S.swing=Math.max(50,Math.min(80,Math.round(+v||67)));$('swing').value=S.swing;$('swingOut').textContent=swingLabel(S.swing);
-  document.querySelectorAll('[data-sw]').forEach(b=>b.setAttribute('aria-pressed',+b.dataset.sw===S.swing));save()}
+  document.querySelectorAll('[data-sw]').forEach(b=>b.setAttribute('aria-pressed',+b.dataset.sw===S.swing));save();if(!S.demoSwing)setDemoSwing(0)}
+// お手本（トロンボーン）の裏拍：0＝伴奏と同じ、50〜80＝お手本だけ別の位置
+const demoSw=()=>S.demoSwing||S.swing||67;
+function setDemoSwing(v){v=Math.round(+v||0);S.demoSwing=v?Math.max(50,Math.min(80,v)):0;const e=demoSw();$('demoSwing').value=e;
+  $('demoSwingOut').textContent=(S.demoSwing?'':'伴奏と同じ・')+swingLabel(e);
+  document.querySelectorAll('[data-dsw]').forEach(b=>b.setAttribute('aria-pressed',+b.dataset.dsw===S.demoSwing));save()}
+$('demoSwing').oninput=()=>setDemoSwing($('demoSwing').value);
+document.querySelectorAll('[data-dsw]').forEach(b=>b.onclick=()=>setDemoSwing(b.dataset.dsw));
 $('swing').oninput=()=>setSwing($('swing').value);
 document.querySelectorAll('[data-sw]').forEach(b=>b.onclick=()=>setSwing(b.dataset.sw));
-setSwing(S.swing);
+setSwing(S.swing);setDemoSwing(S.demoSwing);
 segInit('sndMode','sound');document.querySelectorAll('#sndMode .chip').forEach(b=>b.addEventListener('click',()=>{if(S.sound==='real'&&ctx)loadSamples();showSndState()}));
 $('demoVol').oninput=()=>{S.demoVol=+$('demoVol').value;save();if(demoGain)demoGain.gain.value=S.demoVol/100*.9};
 
@@ -892,13 +902,14 @@ function scheduleBeat(b,t){
   if(rMode==='rhythm'){
     const p=PATS[S.rPat].p,isCall=S.rMode==='cr'?barAbs%2===0:S.rMode==='along';
     const turn=S.rMode==='cr'?(isCall?'call':'resp'):S.rMode;
-    for(const half of [0,1]){const slot=bib*2+half,ts=t+(half?sw:0);
+    const dsw=spb*demoSw()/100,slotT=s=>Math.floor(s/2)*spb+(s%2?dsw:0); // お手本の裏拍位置
+    for(const half of [0,1]){const slot=bib*2+half,ts=t+slotT(slot)-slotT(bib*2);
       if(p[slot]==='x'){
         let len=1;while(slot+len<8&&p[slot+len]==='-')len++;
         if(slot===7)len+=2;
         const k=[...p.slice(0,slot)].filter(x=>x==='x').length;
         const sc=slot===7?chords[beatChord[(pb+1)%total]]:c;
-        if(isCall)horn(pitchFor(sc,k),ts,len*spb/2*.95,demoGain);
+        if(isCall)horn(pitchFor(sc,k),ts,(slotT(slot+len)-slotT(slot))*.95,demoGain);
         if(turn!=='call')expect.push({t:ts,hit:false});
       }
       uiQ.push({t:ts,slot,turn,ci,bar:barAbs+1});
