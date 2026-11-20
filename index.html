@@ -85,6 +85,7 @@ input[type=range]{accent-color:var(--brass)}
 .swingrow output{font-family:var(--f-mono);font-variant-numeric:tabular-nums;font-size:13px;min-width:7.5em}
 .swingrow .chip{padding:6px 10px;min-height:36px;font-size:12px}
 .parts{display:flex;gap:6px;flex-wrap:wrap}
+.sndstate{display:block;font-size:11px;opacity:.75;min-height:1em;margin-top:2px}
 .chip{border:1px solid var(--line);background:var(--sunk);border-radius:999px;padding:8px 12px;min-height:40px;cursor:pointer;font-size:13px}
 .chip[aria-pressed="true"]{background:var(--brass-soft);border-color:var(--brass);color:var(--ink)}
 .play{margin-left:auto;background:var(--brass);color:var(--on-brass);border:0;border-radius:999px;padding:0 26px;min-height:52px;font-weight:700;font-size:17px;cursor:pointer;display:flex;align-items:center;gap:8px}
@@ -317,6 +318,11 @@ footer{font-family:var(--f-body);letter-spacing:.04em;border-top:1px solid var(-
         <button class="chip" id="pBass" aria-pressed="true">ベース</button>
         <button class="chip" id="pDrums" aria-pressed="true">ドラム</button>
       </div></div>
+    <div class="field"><span class="lbl">伴奏の音色</span>
+      <div class="parts" id="sndMode">
+        <button class="chip" data-v="real">生音</button>
+        <button class="chip" data-v="synth">シンプル</button>
+      </div><small id="sndState" class="sndstate" aria-live="polite"></small></div>
     <div class="field"><label for="vol">伴奏の音量</label><input id="vol" type="range" min="0" max="100" value="70" style="width:110px"></div>
     <button class="play" id="play"><svg viewBox="0 0 20 20" fill="currentColor"><path d="M5 3l12 7-12 7z"/></svg><span>再生</span></button>
   </section>
@@ -462,7 +468,7 @@ footer{font-family:var(--f-body);letter-spacing:.04em;border-top:1px solid var(-
     </div>
   </main>
 
-  <footer>伴奏を鳴らしながらマイクを使うときは、イヤホンで伴奏を聴くと判定が正確になります。音名は実音です（B♭管のトロンボーンは移調なしで読めます）。</footer>
+  <footer>伴奏を鳴らしながらマイクを使うときは、イヤホンで伴奏を聴くと判定が正確になります。音名は実音です（B♭管のトロンボーンは移調なしで読めます）。<br><small>伴奏の生音: Virtuosity Drums (Versilian Studios, CC0) / Meatbass (Karoryfer Samples, CC0) / Salamander Grand Piano V3 (Alexander Holm, <a href="https://creativecommons.org/licenses/by/3.0/" target="_blank" rel="noopener">CC BY 3.0</a>)。詳しくは <a href="sounds/CREDITS.md" target="_blank" rel="noopener">CREDITS</a>。</small></footer>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/vexflow@4.2.3/build/cjs/vexflow.js"></script>
@@ -509,7 +515,7 @@ const RN=['I','♭II','II','♭III','III','IV','♯IV','V','♭VI','VI','♭VII'
 
 // ================= 状態 =================
 const S={view:'practice',prog:'one7',key:10,tempo:100,vol:70,parts:{piano:true,bass:true,drums:true},guideOnly:false,
-  rPat:0,rMode:'cr',rPitch:'root',demoVol:70,swing:67,demoSwing:0,custom:null};
+  rPat:0,rMode:'cr',rPitch:'root',demoVol:70,swing:67,demoSwing:0,custom:null,sound:'real'};
 try{const saved=JSON.parse(localStorage.getItem('tbn-adlib')||'{}');Object.assign(S,saved);S.parts=Object.assign({piano:true,bass:true,drums:true},saved.parts||{})}catch(e){}
 const save=()=>{try{localStorage.setItem('tbn-adlib',JSON.stringify(S))}catch(e){}};
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -669,6 +675,7 @@ document.querySelectorAll('[data-dsw]').forEach(b=>b.onclick=()=>setDemoSwing(b.
 $('swing').oninput=()=>setSwing($('swing').value);
 document.querySelectorAll('[data-sw]').forEach(b=>b.onclick=()=>setSwing(b.dataset.sw));
 setSwing(S.swing);setDemoSwing(S.demoSwing);
+segInit('sndMode','sound');document.querySelectorAll('#sndMode .chip').forEach(b=>b.addEventListener('click',()=>{if(S.sound==='real'&&ctx)loadSamples();showSndState()}));
 $('demoVol').oninput=()=>{S.demoVol=+$('demoVol').value;save();if(demoGain)demoGain.gain.value=S.demoVol/100*.9};
 
 function setView(v){
@@ -826,16 +833,47 @@ function ensureCtx(){
     demoGain=ctx.createGain();demoGain.gain.value=S.demoVol/100*.9;demoGain.connect(comp);
     noiseBuf=ctx.createBuffer(1,ctx.sampleRate,ctx.sampleRate);const d=noiseBuf.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1;}
   if(ctx.state==='suspended')ctx.resume();
+  if(S.sound==='real')loadSamples();
 }
 const hz=m=>440*Math.pow(2,(m-69)/12);
 function env(g,t,a,peak,dec){g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(peak,t+a);g.gain.exponentialRampToValueAtTime(0.0001,t+dec)}
+// ---- 生音（サンプル音源）----
+const SMP={ride:[],rideA:[],hh:[],kick:[],bass:{},piano:{}};let smpState='none';
+const BASS_KEYS=[30,33,36,39,42,45,48,51,54,57,60],PIANO_KEYS=[45,48,51,54,57,60,63,66,69,72,75,78,81,84];
+function showSndState(){const el=$('sndState');if(!el)return;el.textContent=S.sound!=='real'?'':smpState==='loading'?'音源を読み込み中…（読み込むまではシンプルな音で鳴ります）':smpState==='error'?'音源を読み込めませんでした。シンプルな音で鳴らします':''}
+function loadSamples(){if(smpState==='loading'||smpState==='ready')return;smpState='loading';showSndState();
+  const get=u=>(PRE[u]||fetch(u).then(r=>{if(!r.ok)throw new Error(u);return r.arrayBuffer()})).then(a=>new Promise((ok,ng)=>ctx.decodeAudioData(a,ok,ng)));
+  const jobs=[];
+  for(const k of ['ride','rideA','hh','kick'])for(let i=1;i<=4;i++)jobs.push(get(`sounds/drums/${k}${i}.mp3`).then(b=>SMP[k].push(b)));
+  for(const m of BASS_KEYS)for(const r of [1,2])jobs.push(get(`sounds/bass/${m}_${r}.mp3`).then(b=>{(SMP.bass[m]=SMP.bass[m]||[]).push(b)}));
+  for(const m of PIANO_KEYS)jobs.push(get(`sounds/piano/${m}.mp3`).then(b=>{SMP.piano[m]=b}));
+  Promise.all(jobs).then(()=>{smpState='ready';showSndState()},()=>{smpState='error';for(const k in PRE)delete PRE[k];showSndState()});}
+// 再生ボタンを押す前に音源ファイルを先読みしておく
+const PRE={};function smpUrls(){const u=[];for(const k of ['ride','rideA','hh','kick'])for(let i=1;i<=4;i++)u.push(`sounds/drums/${k}${i}.mp3`);
+  for(const m of BASS_KEYS)for(const r of [1,2])u.push(`sounds/bass/${m}_${r}.mp3`);for(const m of PIANO_KEYS)u.push(`sounds/piano/${m}.mp3`);return u}
+if(S.sound==='real'&&location.protocol.startsWith('http'))for(const u of smpUrls())PRE[u]=fetch(u).then(r=>{if(!r.ok)throw new Error(u);return r.arrayBuffer()});
+for(const k in PRE)PRE[k].catch(()=>{});
+const useReal=()=>S.sound==='real'&&smpState==='ready';
+const pick=a=>a[Math.floor(Math.random()*a.length)];
+function playBuf(buf,t,gain,rate,dur,rel){const s=ctx.createBufferSource();s.buffer=buf;s.playbackRate.value=rate||1;const g=ctx.createGain();
+  g.gain.setValueAtTime(gain,t);if(dur){g.gain.setValueAtTime(gain,t+dur);g.gain.exponentialRampToValueAtTime(.0001,t+dur+(rel||.08))}
+  s.connect(g).connect(master);s.start(t);if(dur)s.stop(t+dur+(rel||.08)+.02)}
+function nearKey(keys,m){let k=keys[0];for(const q of keys)if(Math.abs(q-m)<Math.abs(k-m))k=q;return k}
+function vary(v){return v*(.88+Math.random()*.24)}
+function drumsReal(t,bib,sw){const strong=bib%2===1;
+  playBuf(pick(strong?SMP.rideA:SMP.ride),t,vary(strong?.75:.6));
+  if(strong){playBuf(pick(SMP.ride),t+sw,vary(.42));playBuf(pick(SMP.hh),t,vary(.5))}
+  playBuf(pick(SMP.kick),t,vary(.25))}
+function bassReal(m,t,dur){const k=nearKey(BASS_KEYS,m);playBuf(pick(SMP.bass[k]),t,vary(.95),Math.pow(2,(m-k)/12),dur,.07)}
+function pianoReal(ms,t,dur){const g=vary(.2);for(const m of ms){const k=nearKey(PIANO_KEYS,m);playBuf(SMP.piano[k],t+Math.random()*.012,g,Math.pow(2,(m-k)/12),dur,.25)}}
 function noise(t,freq,peak,dec,type='highpass'){const s=ctx.createBufferSource();s.buffer=noiseBuf;const f=ctx.createBiquadFilter();f.type=type;f.frequency.value=freq;const g=ctx.createGain();env(g,t,.002,peak,dec);s.connect(f).connect(g).connect(master);s.start(t,Math.random()*.5);s.stop(t+dec+.05)}
 function click(t,acc){const o=ctx.createOscillator(),g=ctx.createGain();o.frequency.value=acc?1800:1200;env(g,t,.002,.35,.06);o.connect(g).connect(master);o.start(t);o.stop(t+.08)}
-function bassNote(m,t,dur){const f=ctx.createBiquadFilter();f.type='lowpass';f.frequency.value=650;const g=ctx.createGain();
+function bassNote(m,t,dur){if(useReal())return bassReal(m,t,dur);const f=ctx.createBiquadFilter();f.type='lowpass';f.frequency.value=650;const g=ctx.createGain();
   g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(.55,t+.012);g.gain.exponentialRampToValueAtTime(.18,t+dur*.9);g.gain.exponentialRampToValueAtTime(.0001,t+dur+.05);
   for(const [type,lv] of [['triangle',1],['sawtooth',.35]]){const o=ctx.createOscillator();o.type=type;o.frequency.value=hz(m);const og=ctx.createGain();og.gain.value=lv;o.connect(og).connect(f);o.start(t);o.stop(t+dur+.1)}
   f.connect(g).connect(master)}
 function comp(c,t,dur){const v=Q[c.q].v;let base=48+c.pc;while(base+v[0]<51)base+=12;while(base+v[0]>=63)base-=12;
+  if(useReal())return pianoReal(v.map(iv=>base+iv),t,dur);
   const f=ctx.createBiquadFilter();f.type='lowpass';f.frequency.value=2600;f.connect(master);
   for(const iv of v){const o=ctx.createOscillator(),g=ctx.createGain();o.type='triangle';o.frequency.value=hz(base+iv);
     g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(.09,t+.006);g.gain.exponentialRampToValueAtTime(.025,t+dur);g.gain.exponentialRampToValueAtTime(.0001,t+dur+.15);
@@ -854,7 +892,7 @@ function scheduleBeat(b,t){
   if(b<4){click(t,b===0);uiQ.push({t,count:4-b});return}
   const pb=(b-4)%total,ci=beatChord[pb],c=chords[ci],bib=pb%4,inC=pb-chordStart[ci],nci=beatChord[(pb+1)%total];
   const barAbs=Math.floor((b-4)/4);
-  if(S.parts.drums){noise(t,6500,bib%2?.16:.12,.35);if(bib%2){noise(t+sw,6500,.09,.25);noise(t,9000,.08,.04,'bandpass')}}
+  if(S.parts.drums&&useReal())drumsReal(t,bib,sw);else if(S.parts.drums){noise(t,6500,bib%2?.16:.12,.35);if(bib%2){noise(t+sw,6500,.09,.25);noise(t,9000,.08,.04,'bandpass')}}
   if(S.parts.bass){let pc;
     if(inC===0)pc=c.pc;
     else if(nci!==ci&&chords.length>1)pc=md(chords[nci].pc+(Math.random()<.5?1:11));
