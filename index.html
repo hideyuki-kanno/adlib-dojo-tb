@@ -1095,7 +1095,7 @@ document.querySelectorAll('[data-mic]').forEach(b=>b.onclick=toggleMic);
 
 // ================= 楽譜から読む =================
 const EXAMPLE='Dm7 G7 | Cmaj7 | Cm7 F7 | B♭maj7 |\nB♭m7 E♭7 | A♭maj7 | Dm7♭5 G7 | Cm6 |';
-let anData=null,photoFile=null,sampleFn=null,readCtl=null,photoOK=false;
+let anData=null,photoFile=null,sampleFn=null,readCtl=null,photoOK=false,ocrOK=false;
 $('progText').value=S.custom?.text||EXAMPLE;$('title').value=S.custom?.title||'';
 function doAnalyze(){
   const {bars,errors}=parseProg($('progText').value);const ps=$('parseStatus');
@@ -1128,8 +1128,8 @@ $('progText').oninput=()=>{anData=null};
 
 let previewURL=null;
 function setPhoto(f,how){if(!f)return;photoFile=f;const img=$('preview');if(previewURL)URL.revokeObjectURL(previewURL);previewURL=URL.createObjectURL(f);img.src=previewURL;img.hidden=false;
-  $('readBtn').disabled=!photoOK;const st=$('readStatus');st.className='status';
-  st.textContent=photoOK?`${how||''}「コードを読み取る」を押してください。`:`${how||''}この画面では写真の読み取りが使えないため、下の欄にコードを手で入力してください。`;}
+  const can=photoOK||ocrOK;$('readBtn').disabled=!can;const st=$('readStatus');st.className='status';
+  st.textContent=can?`${how||''}「コードを読み取る」を押してください。`:`${how||''}この画面では写真の読み取りが使えないため、下の欄にコードを手で入力してください。`;}
 $('photo').onchange=()=>{setPhoto($('photo').files[0]);$('photo').value=''};
 // PC向け：クリップボードの画像を貼り付け（Ctrl+V / ボタン）とドラッグ＆ドロップ
 const imgFromItems=items=>{for(const it of items||[])if(it.kind==='file'&&it.type.startsWith('image/'))return it.getAsFile();return null};
@@ -1154,6 +1154,7 @@ const READ_PROMPT=`この画像は楽譜（リードシートやパート譜）�
 - 曲名とキー（調号から判断）も分かれば書く。
 JSONだけを返してください。形式：{"title": "曲名またはnull", "key": "例: Bb または Gm、不明ならnull", "time": "4/4", "bars": [["Dm7","G7"],["Cmaj7"],["%"]]}`;
 $('readBtn').onclick=async()=>{
+  if(photoFile&&!photoOK&&ocrOK)return ocrClick();
   if(!photoFile||!sampleFn)return;const st=$('readStatus');
   readCtl=new AbortController();$('readBtn').disabled=true;$('stopRead').hidden=false;st.className='status';st.textContent='読み取り中…（30秒〜1分ほどかかります）';
   try{
@@ -1171,7 +1172,8 @@ $('readBtn').onclick=async()=>{
       (code==='invalid_json'||code==='empty')?'コードを読み取れませんでした。明るく、楽譜全体が真っすぐ写った写真でお試しください。':'読み取りに失敗しました。もう一度お試しください。';
   }finally{$('readBtn').disabled=false;$('stopRead').hidden=true}
 };
-$('stopRead').onclick=()=>readCtl&&readCtl.abort();
+$('stopRead').onclick=()=>{if(ocrRun){ocrRun.cancel=true;ocrRun=null;if(tessP)tessP.then(w=>w.terminate()).catch(()=>{});tessP=null;
+  $('readBtn').disabled=false;$('stopRead').hidden=true;$('readStatus').className='status err';$('readStatus').textContent='中止しました。';return}readCtl&&readCtl.abort()};
 $('explainBtn').onclick=async()=>{
   if(!anData||!sampleFn)return;const out=$('explain');out.hidden=false;out.textContent='考え中…';$('explainBtn').disabled=true;
   const {flat,an}=anData,sp=an.mode==='m'?md(an.key+3):an.key;
@@ -1194,9 +1196,153 @@ ${table}`;
       const lim=await s.limits().catch(()=>null);
       if(lim&&lim.images){photoOK=true;st.textContent='';$('photo').accept=lim.images.mediaTypes.join(',');$('readBtn').disabled=!photoFile;return}}
   }catch(e){}
-  photoOK=false;
-  st.textContent='この画面では写真の読み取りが使えません。下の欄にコードを手で入力すればアナライズできます。';
+  photoOK=false;ocrOK=!!(window.Worker&&window.WebAssembly&&window.createImageBitmap);
+  st.textContent=ocrOK?'この画面では、ブラウザの中の文字認識（OCR）でコードを読み取ります。活字の楽譜向けで、手書き風の字は読み間違いが多くなります。初回は認識用のデータ（約7MB）を読み込みます。':
+    'この画面では写真の読み取りが使えません。下の欄にコードを手で入力すればアナライズできます。';
+  $('readBtn').disabled=!(ocrOK&&photoFile);
 })();
+
+// ================= ブラウザ内OCR（Tesseract.js）：公開サイトでのコード読み取り =================
+// 五線と小節線を画像から探し、五線の上の帯だけを文字認識して、コードを小節に振り分ける。
+const TESS_URL='https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js';
+let tessP=null,ocrLog=null;
+function loadScript(src){return new Promise((ok,ng)=>{const s=document.createElement('script');s.src=src;s.onload=ok;s.onerror=()=>ng({code:'ocr_load'});document.head.appendChild(s)})}
+function getTess(){
+  if(!tessP)tessP=(async()=>{if(!window.Tesseract)await loadScript(TESS_URL);
+    const w=await Tesseract.createWorker('eng',1,{logger:m=>ocrLog&&ocrLog(m)});
+    await w.setParameters({tessedit_char_whitelist:'ABCDEFGabdegijlmnostuM0123456789#+-/()°øΔ^|%'});
+    return w})().catch(e=>{tessP=null;throw e&&e.code?e:{code:'ocr_load'}});
+  return tessP;
+}
+async function ocrCanvas(file){
+  const bmp=await createImageBitmap(file);let sc=Math.max(1,Math.min(3,1800/bmp.width));if(bmp.width*sc>3200)sc=3200/bmp.width;
+  const w=Math.round(bmp.width*sc),h=Math.round(bmp.height*sc);
+  if(w*h>24e6)throw{code:'ocr_big'};
+  const cv=document.createElement('canvas');cv.width=w;cv.height=h;const g=cv.getContext('2d');
+  g.fillStyle='#fff';g.fillRect(0,0,w,h);g.imageSmoothingQuality='high';g.drawImage(bmp,0,0,w,h);
+  const id=g.getImageData(0,0,w,h),px=id.data,gray=new Uint8Array(w*h),hist=new Array(256).fill(0);
+  for(let i=0;i<w*h;i++){const v=(px[i*4]*299+px[i*4+1]*587+px[i*4+2]*114)/1000|0;gray[i]=v;hist[v]++}
+  // 大津の二値化
+  let sum=0;for(let i=0;i<256;i++)sum+=i*hist[i];let sB=0,wB=0,best=0,thr=128;
+  for(let t=0;t<256;t++){wB+=hist[t];if(!wB)continue;const wF=w*h-wB;if(!wF)break;sB+=t*hist[t];const mB=sB/wB,mF=(sum-sB)/wF,v=wB*wF*(mB-mF)*(mB-mF);if(v>best){best=v;thr=t}}
+  const dark=new Uint8Array(w*h);for(let i=0;i<w*h;i++){const d=gray[i]<=thr;dark[i]=d;const v=d?0:255;px[i*4]=px[i*4+1]=px[i*4+2]=v}
+  g.putImageData(id,0,0);
+  return {cv,w,h,dark};
+}
+function findStaves({w,h,dark}){
+  const rc=new Float32Array(h);for(let y=0;y<h;y++){let c=0;const o=y*w;for(let x=0;x<w;x++)c+=dark[o+x];rc[y]=c/w}
+  const lines=[];for(let y=0;y<h;y++){if(rc[y]<.3)continue;let y2=y;while(y2+1<h&&rc[y2+1]>=.3)y2++;lines.push((y+y2)/2);y=y2}
+  const st=[];
+  for(let i=0;i+4<lines.length;){const L=lines.slice(i,i+5),gp=L.slice(1).map((v,k)=>v-L[k]),m=gp.reduce((a,b)=>a+b)/4;
+    if(m>=4&&gp.every(v=>Math.abs(v-m)<=Math.max(1.5,m*.2))){st.push({top:L[0],bot:L[4],sp:m});i+=5}else i++}
+  for(const s of st){const y=Math.round(s.top),o=y*w;let x0=0,x1=w-1;
+    // 一番上の線が続いている範囲＝五線の左右の端
+    let run=0,bestS=0,bestL=0,cur=0;for(let x=0;x<w;x++){const d=dark[o+x]||dark[o+x-w]||dark[o+x+w];if(d){if(!run)cur=x;run++;if(run>bestL){bestL=run;bestS=cur}}else run=0}
+    x0=bestS;x1=bestS+bestL-1;s.x0=x0;s.x1=x1;
+    const t=Math.round(s.top),b=Math.round(s.bot),n=b-t+1,cols=[];
+    // 符頭（線と線の間に横に広がる黒）が横にあれば、それは符尾
+    const r=Math.max(2,Math.round(s.sp*.6)),headNear=x=>{for(let y=t;y<=b;y++){const f=(y-t)/s.sp;if(Math.abs(f-Math.round(f))<.22)continue;
+      let cl=0,cr=0;for(let d=2;d<=r+1;d++){cl+=dark[y*w+Math.max(0,x-d)];cr+=dark[y*w+Math.min(w-1,x+d)]}if(cl>r*.7||cr>r*.7)return true}return false};
+    const ya=Math.max(0,Math.round(t-s.sp*.7)),yb=Math.min(h-1,Math.round(b+s.sp*.7)),near=(x,y)=>dark[y*w+x]||dark[y*w+x-1]||dark[y*w+x+1];
+    for(let x=x0+1;x<x1;x++){let c=0;for(let y=t;y<=b;y++)c+=dark[y*w+x];
+      // ト音記号などの縦線（五線の上下にはみ出す）は小節線にしない
+      // 小節線は一番上の線から一番下の線までつながっていて、五線の外へははみ出さない（符尾や記号と区別）
+      if(c>=n*.96&&near(x,t+1)&&near(x,b-1)&&!near(x,ya)&&!near(x,yb)&&!headNear(x))cols.push(x)}
+    const bl=[];for(let k=0;k<cols.length;){let k2=k;while(k2+1<cols.length&&cols[k2+1]-cols[k2]<=s.sp*.8)k2++;
+      if(cols[k2]-cols[k]<s.sp*1.5)bl.push((cols[k]+cols[k2])/2);k=k2+1}
+    const bd=[x0,...bl,x1].sort((a,b)=>a-b),bounds=[];for(const x of bd)if(!bounds.length||x-bounds[bounds.length-1]>s.sp*2.5)bounds.push(x);else bounds[bounds.length-1]=Math.max(bounds[bounds.length-1],x);
+    if(bounds.length<2)bounds.push(x1);
+    s.bars=bounds.slice(0,-1).map((x,k)=>[x,bounds[k+1]]);
+  }
+  return st;
+}
+const CH_REST=/^(maj|ma|mi|min|m|M|-|dim|o|°|ø|Δ|\^|aug|\+|sus|add|alt|[0-9]|#|b|\(|\))*$/;
+function toChords(text){
+  const out=[];
+  for(let t of text.replace(/[|%]/g,' ').split(/\s+/)){
+    t=t.replace(/[^A-Ga-z0-9#+\-\/()°øΔ^M]/g,'');if(!t)continue;
+    for(let p of t.split(/(?<=[0-9a-z)#+°ø\-])(?=[A-G])/)){
+      // ♭がsや-に読まれることがある（B♭7→Bs7、E♭maj7→E-maj7）。m7の後の5は♭5の読み落とし
+      p=p.replace(/^([A-G])(?:s(?!us)|e)/,'$1b').replace(/^([A-G])o(?=maj|ma|M|m)/,'$1b').replace(/^([A-G])-(?=maj|ma|M|Δ|\^)/,'$1b').replace(/m7([+-]?)5/,(_,a)=>'m7'+(a==='+'?'#':'b')+'5');
+      p=p.replace(/^([A-G][#b]?)0/,'$1o').replace(/rn/g,'m').replace(/(?<=[A-G][#b]?(?:m|mi|maj|j))#(?=$|b|\()/,'7');
+      const m=p.match(/^([A-G][#b]?)(.*?)(?:\/([A-G][#b]?))?$/);if(!m||!CH_REST.test(m[2])||m[2].length>9)continue;
+      if(/^\(|[(]$/.test(m[2])&&!/\)/.test(m[2]))p=p.replace(/\($/,'');
+      if(parseChord(p))out.push(p.replace(/\^/g,'Δ'));
+    }
+  }
+  return out;
+}
+// 画像の一部を切り出して文字認識し、コードの候補になる語（位置つき）を返す
+async function ocrWords(wk,cv,x,y,w,h,sp,psm){
+  const c=document.createElement('canvas');c.width=w;c.height=h;c.getContext('2d').drawImage(cv,-x,-y); // rectangle指定は結果が崩れるので切り出して渡す
+  await wk.setParameters({tessedit_pageseg_mode:psm});
+  const {data}=await wk.recognize(c);
+  const sh=b=>({x0:b.x0+x,x1:b.x1+x,y0:b.y0,y1:b.y1});
+  // 五線から上に飛び出した符尾は「|」「i」などに読まれるので、その文字を取り除いて語の位置を直す
+  const clean=(data.words||[]).map(wd=>{const sy=(wd.symbols||[]).filter(c=>!/^[|!il1I]$/.test(c.text)||(c.bbox.y1-c.bbox.y0)<sp*1.2);
+    if(!wd.symbols||!wd.symbols.length||sy.length===wd.symbols.length)return {text:wd.text,bbox:sh(wd.bbox)};if(!sy.length)return null;
+    return {text:sy.map(c=>c.text).join(''),bbox:sh({x0:Math.min(...sy.map(c=>c.bbox.x0)),x1:Math.max(...sy.map(c=>c.bbox.x1)),y0:Math.min(...sy.map(c=>c.bbox.y0)),y1:Math.max(...sy.map(c=>c.bbox.y1))})}}).filter(Boolean);
+  // 「Ebmaj」「7」のように分かれた語は、すぐ右にある数字・テンションをつなげる
+  const ws=[];for(const wd of clean.sort((a,b)=>a.bbox.x0-b.bbox.x0)){const pv=ws[ws.length-1];
+    if(pv&&/^[0-9()#b+\-]+$/.test(wd.text)&&wd.bbox.x0-pv.bbox.x1<sp*1.2&&/[A-Ga-z0-9]$/.test(pv.text))pv.text+=wd.text,pv.bbox={...pv.bbox,x1:wd.bbox.x1};
+    else ws.push(wd)}
+  return ws;
+}
+async function ocrRead(file,onProg,run={}){
+  onProg('画像を調べています…');
+  const img=await ocrCanvas(file),staves=findStaves(img);
+  ocrLog=m=>{if(m.status==='loading language traineddata')onProg('文字認識のデータを読み込んでいます…（初回のみ数MB）');
+    else if(m.status==='recognizing text')onProg(`文字を認識しています… ${Math.round(m.progress*100)}%`)};
+  onProg('文字認識の準備をしています…（初回は少し時間がかかります）');
+  const wk=await getTess();const lines=[];
+  if(staves.length){
+    for(let i=0;i<staves.length;i++){const s=staves[i],sp=s.sp;
+      const lim=i?staves[i-1].bot+sp*2:0,y0=Math.max(lim,Math.round(s.top-sp*6)),y1=Math.round(s.top-sp*.6);
+      if(y1-y0<sp)continue;onProg(`${i+1}/${staves.length}段目を読んでいます…`);
+      const bars=s.bars.map(()=>[]);
+      const put=(wd,only)=>{const hgt=wd.bbox.y1-wd.bbox.y0;if(hgt<sp*.8||hgt>sp*5)return;
+        const cx=(wd.bbox.x0+wd.bbox.x1)/2;if(cx<s.x0-sp*2||cx>s.x1+sp)return;
+        const cs=toChords(wd.text);if(!cs.length)return;
+        // コードの左端で小節を決める（長いコード名が小節線をまたいでも前の小節に入るように）
+        const lx=wd.bbox.x0+sp*.5;let k=s.bars.findIndex(b=>lx<b[1]);if(k<0)k=s.bars.length-1;
+        if(only!=null&&k!==only)return;
+        bars[k].push(...cs.map(c=>({c,x:wd.bbox.x0})))};
+      // 1回目：帯全体をまばらな文字として読む
+      for(const wd of await ocrWords(wk,img.cv,0,y0,img.w,y1-y0,sp,'11'))put(wd);
+      // 2回目：何も読めなかった小節だけ、その小節の帯を1行として読み直す（1回目の読み落とし対策）
+      for(let k=0;k<bars.length;k++){if(bars[k].length||run.cancel)continue;const [bx0,bx1]=s.bars[k];
+        for(const wd of await ocrWords(wk,img.cv,Math.max(0,Math.round(bx0-sp*.3)),y0,Math.round(bx1-bx0),y1-y0,sp,'7'))put(wd,k)}
+      if(bars.every(b=>!b.length))continue;
+      lines.push(bars.map(b=>b.length?b.sort((a,b)=>a.x-b.x).map(o=>o.c).join(' '):'%').join(' | ')+' |');
+    }
+  }else{
+    onProg('五線が見つからないので、画像全体を読んでいます…');
+    await wk.setParameters({tessedit_pageseg_mode:'6'});const {data}=await wk.recognize(img.cv);
+    for(const ln of (data.text||'').split('\n')){
+      const bars=ln.split('|').map(toChords).filter(b=>b.length);if(!bars.length)continue;
+      lines.push((bars.length>1?bars.map(b=>b.join(' ')):bars[0]).join(' | ')+' |');
+    }
+  }
+  return {lines,staves:staves.length};
+}
+let ocrRun=null;
+async function ocrClick(){
+  const st=$('readStatus'),run=ocrRun={cancel:false};$('readBtn').disabled=true;$('stopRead').hidden=false;st.className='status';
+  try{
+    const r=await ocrRead(photoFile,t=>{if(!run.cancel)st.textContent=t},run);
+    if(run.cancel)return;
+    if(!r.lines.length)throw{code:'empty'};
+    $('progText').value=r.lines.join('\n');
+    const n=r.lines.reduce((a,l)=>a+l.split('|').filter(x=>x.trim()).length,0);
+    st.textContent=`${n}小節を読み取りました（文字認識）。${r.staves?'':'五線が見つからなかったので、1行ずつ読みました。'}読み間違い・読み落としがよくあるので、楽譜と見比べて直してから「アナライズ」を押してください。コードがない小節は「%」にしています。`;
+    doAnalyze();
+  }catch(e){if(run.cancel)return;const code=e&&e.code;st.className='status err';
+    st.textContent=code==='cancelled'?'中止しました。':code==='ocr_load'?'文字認識の部品を読み込めませんでした。ネットにつながっているか確認して、もう一度お試しください。':
+      code==='ocr_big'?'画像が大きすぎます。楽譜の部分だけを切り取ってお試しください。':
+      code==='empty'?'コードを見つけられませんでした。コードネームの部分がはっきり写った画像でお試しください。手書き風の字は読めないことがあります。':'読み取りに失敗しました。もう一度お試しください。';
+    if(code!=='cancelled')console.error(e);
+  }finally{if(ocrRun===run)ocrRun=null;$('readBtn').disabled=false;$('stopRead').hidden=true}
+}
 
 // ================= ボックス練習（ギターのボックスをトロンボーンのポジションに） =================
 const B_LO=44,B_HI=72; // 音域：A♭2〜C5
