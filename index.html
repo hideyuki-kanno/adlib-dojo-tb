@@ -197,6 +197,8 @@ tr.flat .cell{border-style:dotted}
 /* 楽譜 */
 .drop{border:2px dashed var(--line);border-radius:var(--r);padding:16px;display:flex;flex-direction:column;gap:10px;align-items:flex-start;background:var(--sunk)}
 .drop img{max-height:240px;border-radius:8px;border:1px solid var(--line)}
+.drop.over{border-color:var(--brass);border-style:solid}
+@media (hover:none) and (pointer:coarse){ .pc-hint,#pasteBtn{display:none} }
 textarea{width:100%;min-height:140px;background:var(--sunk);border:1px solid var(--line);border-radius:10px;padding:10px;font-family:var(--f-mono);font-size:15px;line-height:1.6;resize:vertical}
 .txt{background:var(--sunk);border:1px solid var(--line);border-radius:8px;padding:10px;min-height:44px}
 .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
@@ -496,10 +498,11 @@ footer{font-family:var(--f-body);letter-spacing:.04em;border-top:1px solid var(-
       <section class="panel o1">
         <h3>1. 楽譜の写真からコードを読み取る</h3>
         <div class="drop">
-          <p class="status">コードネームが書かれた楽譜（リードシート）の写真を選んでください。1ページずつ読み取ります。</p>
+          <p class="status">コードネームが書かれた楽譜（リードシート）の写真を選んでください。1ページずつ読み取ります。<span class="pc-hint"><br>PCでは、スクリーンショットをコピーしてこの画面で <b>Ctrl+V</b>（Macは ⌘+V）を押すか、画像をここへドラッグしても読み込めます。</span></p>
           <div class="row">
             <label class="btn ghost" for="photo" style="display:inline-flex;align-items:center">写真を撮る・選ぶ</label>
             <input id="photo" type="file" accept="image/*" hidden>
+            <button class="btn ghost" id="pasteBtn" type="button">画像を貼り付け</button>
             <button class="btn" id="readBtn" disabled>コードを読み取る</button>
             <button class="btn ghost" id="stopRead" hidden>中止</button>
           </div>
@@ -1099,8 +1102,26 @@ $('usePractice').onclick=()=>useProgress('practice');
 $('useRhythm').onclick=()=>useProgress('rhythm');
 $('progText').oninput=()=>{anData=null};
 
-$('photo').onchange=()=>{const f=$('photo').files[0];if(!f)return;photoFile=f;const img=$('preview');img.src=URL.createObjectURL(f);img.hidden=false;
-  $('readBtn').disabled=!photoOK;if(photoOK){$('readStatus').className='status';$('readStatus').textContent='「コードを読み取る」を押してください。'}};
+let previewURL=null;
+function setPhoto(f,how){if(!f)return;photoFile=f;const img=$('preview');if(previewURL)URL.revokeObjectURL(previewURL);previewURL=URL.createObjectURL(f);img.src=previewURL;img.hidden=false;
+  $('readBtn').disabled=!photoOK;const st=$('readStatus');st.className='status';
+  st.textContent=photoOK?`${how||''}「コードを読み取る」を押してください。`:`${how||''}この画面では写真の読み取りが使えないため、下の欄にコードを手で入力してください。`;}
+$('photo').onchange=()=>{setPhoto($('photo').files[0]);$('photo').value=''};
+// PC向け：クリップボードの画像を貼り付け（Ctrl+V / ボタン）とドラッグ＆ドロップ
+const imgFromItems=items=>{for(const it of items||[])if(it.kind==='file'&&it.type.startsWith('image/'))return it.getAsFile();return null};
+document.addEventListener('paste',e=>{if($('view-score').hidden)return;const f=imgFromItems(e.clipboardData&&e.clipboardData.items);
+  if(!f)return;e.preventDefault();setPhoto(f,'貼り付けた画像を読み込みました。')});
+$('pasteBtn').onclick=async()=>{const st=$('readStatus');
+  try{if(!navigator.clipboard||!navigator.clipboard.read)throw 0;
+    for(const it of await navigator.clipboard.read()){const t=it.types.find(x=>x.startsWith('image/'));
+      if(t){const b=await it.getType(t);setPhoto(new File([b],'clipboard.'+(t.split('/')[1]||'png'),{type:t}),'貼り付けた画像を読み込みました。');return}}
+    st.className='status err';st.textContent='クリップボードに画像がありません。スクリーンショットを撮ってコピーしてから押してください。';
+  }catch(e){st.className='status err';st.textContent='ボタンからは貼り付けできませんでした。この画面で Ctrl+V（Macは ⌘+V）を押してください。'}};
+const drop=document.querySelector('#view-score .drop');
+drop.addEventListener('dragover',e=>{e.preventDefault();drop.classList.add('over')});
+drop.addEventListener('dragleave',()=>drop.classList.remove('over'));
+drop.addEventListener('drop',e=>{e.preventDefault();drop.classList.remove('over');const f=[...(e.dataTransfer&&e.dataTransfer.files||[])].find(x=>x.type.startsWith('image/'));
+  if(f)setPhoto(f,'ドロップした画像を読み込みました。')});
 const READ_PROMPT=`この画像は楽譜（リードシートやパート譜）の写真です。五線の上に書かれたコードネームを、小節ごとに、左上から右下へ読む順番で書き出してください。
 ルール：
 - 1小節に複数のコードがあれば左から順に並べる。コードが書かれていない小節は "%" と書く。
