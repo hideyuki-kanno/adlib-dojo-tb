@@ -287,6 +287,27 @@ select,.txt,textarea{border-radius:4px}
 .stage .rcell.now{background:var(--surface)}
 .stage .tip{color:var(--ink)}
 footer{font-family:var(--f-body);letter-spacing:.04em;border-top:1px solid var(--line);padding-top:10px}
+/* ボックス練習 */
+@media (max-width:520px){ .tabs{gap:2px} .tab{padding:6px 7px;font-size:12px;letter-spacing:0} }
+.cell.oor{visibility:hidden}
+.cell.ct{box-shadow:inset 0 0 0 3px var(--tone)}
+.cell.hit{box-shadow:0 0 0 3px var(--hit)}
+.cell.roomedge{}
+.slide th.pos.inroom{color:var(--brass)}
+.pathrow{display:flex;flex-wrap:wrap;gap:6px}
+.pn{display:flex;flex-direction:column;align-items:center;min-width:46px;padding:5px 6px;border:0;cursor:pointer;font-family:var(--f-display);font-size:16px;line-height:1.1;border-radius:4px}
+.pn small{font-family:var(--f-mono);font-size:11px;opacity:.85}
+.pn.out{background:transparent;border:1px dashed var(--line);color:var(--muted)}
+.pn.hit{box-shadow:0 0 0 3px var(--hit)}
+.phr{display:grid;grid-template-columns:2em 1fr;gap:4px 10px;border:1px solid var(--line);background:var(--sunk);border-radius:4px;padding:8px 10px;cursor:pointer;text-align:left;color:var(--ink);width:100%}
+.phr[aria-pressed="true"]{border-color:var(--brass);background:var(--brass-soft)}
+.phr .lv{font-family:var(--f-display);font-size:18px;font-weight:700;color:var(--brass);grid-row:span 3}
+.phr .nm{font-weight:700;font-size:14px}
+.phr .cd{font-size:12px;color:var(--muted)}
+.phr .ns{font-family:var(--f-mono);font-size:12px;overflow-wrap:anywhere}
+.phlist{display:flex;flex-direction:column;gap:6px}
+.phdetail{background:var(--sunk);border-radius:4px;padding:10px 12px;font-size:14px;display:flex;flex-direction:column;gap:8px}
+.phdetail .src{font-size:12px;color:var(--muted)}
 @media (prefers-reduced-motion:reduce){ *{transition:none!important} }
 </style>
 
@@ -298,6 +319,7 @@ footer{font-family:var(--f-body);letter-spacing:.04em;border-top:1px solid var(-
     </div>
     <nav class="tabs" role="tablist" aria-label="練習メニュー">
       <button class="tab" role="tab" id="tab-practice" data-v="practice">伴奏で練習</button>
+      <button class="tab" role="tab" id="tab-box" data-v="box">ボックス</button>
       <button class="tab" role="tab" id="tab-rhythm" data-v="rhythm">リズム</button>
       <button class="tab" role="tab" id="tab-score" data-v="score">楽譜から読む</button>
     </nav>
@@ -366,6 +388,50 @@ footer{font-family:var(--f-body);letter-spacing:.04em;border-top:1px solid var(-
         <div class="stats" id="stats"></div>
         <button class="linkbtn" id="resetStats">記録をリセット</button>
         <div class="note-msg" data-micmsg hidden></div>
+      </section>
+    </div>
+  </main>
+
+
+  <!-- ボックス練習 -->
+  <main class="grid" id="view-box" hidden>
+    <div class="col">
+      <section class="panel stage o1" aria-live="polite">
+        <div class="now"><div class="chord" id="bChord"></div><div class="next" id="bNext"></div></div>
+        <div class="beats"><span class="beat"></span><span class="beat"></span><span class="beat"></span><span class="beat"></span><span class="barno" id="bBarno"></span></div>
+        <div class="target" id="bTip"></div>
+      </section>
+      <section class="panel o3">
+        <h2>この部屋での上りの順番（タップで音）</h2>
+        <div class="pathrow" id="bPath"></div>
+        <div class="row"><button class="btn ghost" id="bPathPlay">上り下りを聴く</button><span class="status" id="bPathNote"></span></div>
+      </section>
+      <section class="panel o4">
+        <h2>練習フレーズ（上から順に難しくなる）</h2>
+        <div class="phdetail" id="bPhDetail" hidden></div>
+        <div class="phlist" id="bPhrases"></div>
+      </section>
+    </div>
+    <div class="col">
+      <section class="panel o2">
+        <div class="maphead"><h2>ボックス（部屋）</h2></div>
+        <div class="field"><span class="lbl">部屋（使うポジションの範囲）</span>
+          <div class="seg" id="bRoom">
+            <button class="chip" data-v="A">A：1〜4</button>
+            <button class="chip" data-v="B">B：3〜6</button>
+            <button class="chip" data-v="C">C：4〜7</button>
+            <button class="chip" data-v="all">全部</button>
+          </div></div>
+        <div class="field"><span class="lbl">型（光らせる音）</span>
+          <div class="seg" id="bShape">
+            <button class="chip" data-v="tones">コードトーン</button>
+            <button class="chip" data-v="scale">コードのスケール</button>
+            <button class="chip" data-v="penta">キーのペンタ</button>
+            <button class="chip" data-v="blues">キーのブルース</button>
+          </div></div>
+        <div class="scroll"><table class="slide" id="bBoard"></table></div>
+        <div class="legend" id="bLegend"></div>
+        <p class="status">音域はA♭2（ヘ音記号の第1間）〜C5です。点線の段（第7倍音）は低めに鳴るので、スライドを少し内側へ。1ポジションの第7倍音は使いません。</p>
       </section>
     </div>
   </main>
@@ -515,7 +581,7 @@ const RN=['I','♭II','II','♭III','III','IV','♯IV','V','♭VI','VI','♭VII'
 
 // ================= 状態 =================
 const S={view:'practice',prog:'one7',key:10,tempo:100,vol:70,parts:{piano:true,bass:true,drums:true},guideOnly:false,
-  rPat:0,rMode:'cr',rPitch:'root',demoVol:70,swing:67,demoSwing:0,custom:null,sound:'real'};
+  rPat:0,rMode:'cr',rPitch:'root',demoVol:70,swing:67,demoSwing:0,custom:null,sound:'real',bRoom:'A',bShape:'tones',bPh:-1};
 try{const saved=JSON.parse(localStorage.getItem('tbn-adlib')||'{}');Object.assign(S,saved);S.parts=Object.assign({piano:true,bass:true,drums:true},saved.parts||{})}catch(e){}
 const save=()=>{try{localStorage.setItem('tbn-adlib',JSON.stringify(S))}catch(e){}};
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -679,13 +745,14 @@ segInit('sndMode','sound');document.querySelectorAll('#sndMode .chip').forEach(b
 $('demoVol').oninput=()=>{S.demoVol=+$('demoVol').value;save();if(demoGain)demoGain.gain.value=S.demoVol/100*.9};
 
 function setView(v){
-  if(!['practice','rhythm','score'].includes(v))v='practice';
+  if(!['practice','box','rhythm','score'].includes(v))v='practice';
   if(playing&&v!==S.view)stop();
   S.view=v;save();
-  for(const x of ['practice','rhythm','score']){$('view-'+x).hidden=x!==v;$('tab-'+x).setAttribute('aria-selected',x===v)}
+  for(const x of ['practice','box','rhythm','score']){$('view-'+x).hidden=x!==v;$('tab-'+x).setAttribute('aria-selected',x===v)}
   $('controls').hidden=v==='score';
   if(location.hash!=='#'+v)try{history.replaceState(null,'','#'+v)}catch(e){}
   if(v==='rhythm')renderRhythm();
+  if(v==='box')renderBox();
 }
 document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>setView(t.dataset.v));
 window.addEventListener('hashchange',()=>setView(location.hash.slice(1)));
@@ -718,7 +785,7 @@ function renderChord(){
   $('target').innerHTML=chords.length>1&&n!==c
     ?`着地ターゲット：次の <strong>${esc(cfull(n))}</strong> の3度 <strong>${nm(n3,n.sp)}</strong>（${spots.join('、')}）`
     :`課題：3度 <strong>${nm(c.pc+q.tones[1],c.sp)}</strong> と7度 <strong>${nm(c.pc+q.tones[3],c.sp)}</strong> を行き来する短いフレーズを、同じリズムで何度もくり返してみよう`;
-  renderMap();
+  renderMap();if(S.view==='box')renderBox();
 }
 let hitMidi=null;
 function renderMap(){
@@ -734,7 +801,7 @@ function renderMap(){
   $('slide').innerHTML=h+'</tbody>';
   $('slide').querySelectorAll('.cell').forEach(td=>{td.onclick=()=>tone(+td.dataset.m);td.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();tone(+td.dataset.m)}}});
 }
-function setBeat(b,bar){document.querySelectorAll('#view-practice .beat').forEach((e,i)=>e.classList.toggle('on',i===b));$('barno').textContent=bar?`小節 ${bar} / ${Math.ceil(total/4)}`:''}
+function setBeat(b,bar){for(const v of ['practice','box'])document.querySelectorAll(`#view-${v} .beat`).forEach((e,i)=>e.classList.toggle('on',i===b));const t=bar?`小節 ${bar} / ${Math.ceil(total/4)}`:'';$('barno').textContent=t;$('bBarno').textContent=t}
 
 // ================= リズム課題 =================
 const PATS=[
@@ -925,13 +992,13 @@ function scheduleBeat(b,t){
 function sched(){while(nextTime<ctx.currentTime+.12){scheduleBeat(beatN,nextTime);nextTime+=60/S.tempo;beatN++}}
 function uiLoop(){if(!playing)return;
   while(uiQ.length&&uiQ[0].t<=ctx.currentTime){const e=uiQ.shift();
-    if(e.count){if(rMode==='rhythm'){setTurn('count');curTurn='count';$('rBarno').textContent=`カウント ${e.count}`}else{$('chordNow').innerHTML=`<span class="countin">カウント ${e.count}</span>`;setBeat(4-e.count)}}
+    if(e.count){if(rMode==='rhythm'){setTurn('count');curTurn='count';$('rBarno').textContent=`カウント ${e.count}`}else{$('chordNow').innerHTML=$('bChord').innerHTML=`<span class="countin">カウント ${e.count}</span>`;setBeat(4-e.count)}}
     else if(rMode==='rhythm'){if(e.ci!==cur){cur=e.ci;showRNote(cur)}if(e.turn!==curTurn){curTurn=e.turn;setTurn(e.turn)}renderRgrid(e.slot);$('rBarno').textContent=`小節 ${e.bar}`}
     else{if(e.ci!==cur||curBeat<0){cur=e.ci;renderChord()}curBeat=e.bib;setBeat(e.bib,e.bar)}}
   if(micOn&&rMode==='rhythm'){const now=ctx.currentTime-latency();let ch=false;while(expect.length&&expect[0].t<now-.25){const e=expect.shift();if(!e.hit){tStats.miss++;ch=true}}if(ch)renderTiming()}
   requestAnimationFrame(uiLoop)}
 const playBtn=$('play');
-function start(){ensureCtx();rMode=S.view==='rhythm'?'rhythm':'practice';playing=true;beatN=0;uiQ=[];expect=[];curBeat=-1;curTurn='';prevBass=43;
+function start(){phStop();ensureCtx();rMode=S.view==='rhythm'?'rhythm':'practice';playing=true;beatN=0;uiQ=[];expect=[];curBeat=-1;curTurn='';prevBass=43;
   if(rMode==='rhythm'){cur=0;showRNote(0)}
   nextTime=ctx.currentTime+.12;timer=setInterval(sched,25);sched();requestAnimationFrame(uiLoop);
   playBtn.querySelector('span').textContent='停止';playBtn.querySelector('svg').innerHTML='<rect x="4" y="4" width="12" height="12" rx="1"/>';
@@ -1085,6 +1152,145 @@ ${table}`;
   photoOK=false;
   st.textContent='この画面では写真の読み取りが使えません。下の欄にコードを手で入力すればアナライズできます。';
 })();
+
+// ================= ボックス練習（ギターのボックスをトロンボーンのポジションに） =================
+const B_LO=44,B_HI=72; // 音域：A♭2〜C5
+const ROOMS={A:[1,4],B:[3,6],C:[4,7],all:[1,7]};
+const ROOM_NAME={A:'部屋A（1〜4ポジション）',B:'部屋B（3〜6ポジション）',C:'部屋C（4〜7ポジション）',all:'全部のポジション'};
+const cellOK=(o,p)=>{const m=o.m-(p-1);return m>=B_LO&&m<=B_HI&&!(o.flat&&p===1)};
+const PN={'C':0,'D♭':1,'D':2,'E♭':3,'E':4,'F':5,'G♭':6,'G':7,'A♭':8,'A':9,'B♭':10,'B':11};
+const midiOf=s=>{const x=s.match(/^([A-G]♭?)(\d)$/);return (+x[2]+1)*12+PN[x[1]]};
+// フレーズ：[音名, ポジション, 長さ（8分音符いくつ分）]、音名 null は休み
+const PHRASES=[
+ {n:'3音だけ',src:'ギター：ボックス1の2本の弦だけで弾く',cd:'B♭M7（B♭の曲ならどこでも）',room:'A',prog:'251',key:10,ci:2,
+  ns:[['B♭3',1,2],['C4',3,2],['D4',1,2],['C4',3,2],['B♭3',1,2],['G3',4,6]],tip:'スライドは1・3・4だけ。音を増やさず、リズムを変えて何通りも作ってみよう。'},
+ {n:'動かないアルペジオ',src:'ギター：同じフレットのまま弦をまたぐ',cd:'B♭M7',room:'A',prog:'251',key:10,ci:2,
+  ns:[['F3',1,2],['B♭3',1,2],['D4',1,2],['F4',1,2],['D4',1,2],['B♭3',1,2],['F3',1,4]],tip:'全部1ポジションのリップスラー。コードトーンが「倍音を替えるだけ」で出せる体験です。'},
+ {n:'ガイドトーン①（線を聴く）',src:'ギター：3度と7度を小節の頭に置く',cd:'Cm7 | F7 | B♭M7',room:'A',prog:'251',key:10,ci:0,
+  ns:[['B♭3',1,4],[null,0,4],['A3',2,4],[null,0,4],['A3',2,8]],tip:'Cm7の7度→F7の3度→B♭M7の7度。コードが変わってもスライドは1つしか動きません。'},
+ {n:'ガイドトーン②（間を埋める）',src:'ギター：ガイドトーンの間をスケールでつなぐ',cd:'Cm7 | F7 | B♭M7',room:'A',prog:'251',key:10,ci:0,
+  ns:[['E♭4',3,2],['D4',1,2],['C4',3,2],['B♭3',1,2],['A3',2,2],['C4',3,2],['E♭4',3,2],['C4',3,2],['D4',1,8]],tip:'各小節の1拍目がコードの3度。①の線を思い出しながら吹きます。'},
+ {n:'はさみ込み',src:'ギター：狙う音を半音上と下からはさむ',cd:'F7 → B♭M7',room:'A',prog:'251',key:10,ci:1,
+  ns:[['B♭3',1,1],['A♭3',3,1],['A3',2,6],['E♭4',3,1],['D♭4',2,1],['D4',1,6]],tip:'狙う音は各コードの3度。スライドは1→3→2、3→2→1の短い往復だけです。'},
+ {n:'ブルースのずり上げ',src:'ギター：チョーキング（♭3→3）',cd:'F7（Fブルース）',room:'A',prog:'one7',key:5,ci:0,
+  ns:[['F3',1,2],['A♭3',3,1],['A3',2,1],['C4',3,2],[null,0,2],['A3',2,2],['F3',1,6]],tip:'A♭→Aはスライドを3から2へゆっくり滑らせます（グリッサンド）。'},
+ {n:'形ごとずらす①（Fの調）',src:'ギター：ボックスを平行移動して移調',cd:'Gm7 | C7 | FM7',room:'A',prog:'251',key:5,ci:0,
+  ns:[['B♭3',1,2],['A3',2,2],['G3',4,2],['F3',1,2],['E3',2,2],['G3',4,2],['B♭3',1,2],['G3',4,2],['A3',2,8]],tip:'次の②と聴き比べてください。'},
+ {n:'形ごとずらす②（E♭の調）',src:'ギター：ボックスを平行移動して移調',cd:'Fm7 | B♭7 | E♭M7',room:'B',prog:'251',key:3,ci:0,
+  ns:[['A♭3',3,2],['G3',4,2],['F3',6,2],['E♭3',3,2],['D3',4,2],['F3',6,2],['A♭3',3,2],['F3',6,2],['G3',4,8]],tip:'①の全部のポジションに＋2すると、全音下の調になります。倍音の乗り換えは同じです。'},
+ {n:'裏から入る',src:'ギター：コール＆レスポンス',cd:'B♭M7（B♭の曲ならどこでも）',room:'A',prog:'251',key:10,ci:2,
+  ns:[[null,0,3],['D4',1,1],['F4',1,2],['D4',1,2],[null,0,3],['C4',3,1],['B♭3',1,2],['G3',4,2]],tip:'問いかけと答え。休符を入れるだけでアドリブらしくなります。'},
+ {n:'奥の部屋でガイドトーン',src:'ギター：別のボックスで同じ進行を弾く',cd:'Dm7 | G7 | CM7',room:'C',prog:'251',key:0,ci:0,
+  ns:[['F3',6,2],['A3',6,2],['C4',6,4],['B3',4,2],['D4',4,2],['F4',6,4],['E4',7,8]],tip:'部屋Cだけで吹きます。C→B、F→Eの半音の動きがガイドトーン。部屋Aなら C4(3)→B3(4)、F4(1)→E4(2)。'},
+];
+const rowOf=(m,p)=>OPEN.find(o=>o.m-(p-1)===m);
+let bHit=null; // {m,p} 光らせるセル
+function keyInfo(c){
+  const tonic=S.prog==='cycle'&&c?c.sp:S.key;
+  const minor=S.prog==='modal'||S.prog==='251m'||(S.prog==='custom'&&S.custom&&S.custom.mode==='m');
+  return {tonic,minor};
+}
+function shapeOf(c){ // pc -> {cls,label}
+  const res={};if(!c)return res;
+  if(S.bShape==='tones'||S.bShape==='scale'){
+    for(let pc=0;pc<12;pc++){const r=roleOf(c,pc);if(r==='out'||(S.bShape==='tones'&&r==='scale'))continue;res[pc]={cls:'r-'+r,label:ivLabel(c.q,md(pc-c.pc))}}
+  }else{
+    const {tonic,minor}=keyInfo(c);
+    const iv=S.bShape==='blues'?[0,3,5,6,7,10]:minor?[0,3,5,7,10]:[0,2,4,7,9];
+    const lb=S.bShape==='blues'?['R','♭3','4','♭5','5','♭7']:minor?['R','♭3','4','5','♭7']:['R','2','3','5','6'];
+    iv.forEach((x,i)=>{const pc=md(tonic+x);res[pc]={cls:x===0?'r-root':'r-scale',label:lb[i],ct:Q[c.q].tones.some(t=>md(c.pc+t)===pc)}});
+  }
+  return res;
+}
+function pathOf(c){ // 部屋の中での上りの順番
+  const sh=shapeOf(c),[lo,hi]=ROOMS[S.bRoom],out=[];
+  for(let m=B_LO;m<=B_HI;m++){const s=sh[m%12];if(!s)continue;
+    const cand=OPEN.filter(o=>{const p=o.m-m+1;return p>=1&&p<=7&&cellOK(o,p)}).map(o=>({p:o.m-m+1,flat:!!o.flat}));
+    const inR=cand.filter(x=>x.p>=lo&&x.p<=hi).sort((a,b)=>(a.flat-b.flat)||(a.p-b.p));
+    out.push(inR.length?{m,p:inR[0].p,s}:{m,p:cand.length?cand.sort((a,b)=>a.flat-b.flat||a.p-b.p)[0].p:0,s,out:true});}
+  return out;
+}
+const mName=(m,c)=>nm(m%12,c?c.sp:S.key)+(Math.floor(m/12)-1);
+function renderBox(){
+  const c=chords[cur];if(!c)return;
+  for(const [id,k] of [['bRoom','bRoom'],['bShape','bShape']])$(id).querySelectorAll('.chip').forEach(b=>{b.setAttribute('aria-pressed',b.dataset.v===S[k]);b.onclick=()=>{S[k]=b.dataset.v;save();renderBox()}});
+  const n=chords[(cur+1)%chords.length];
+  $('bChord').innerHTML=`${root(c)}<span class="q">${esc(c.qt)}</span>`;
+  $('bNext').innerHTML=chords.length>1?`次<b>${esc(cfull(n))}</b>`:'';
+  const sh=shapeOf(c),[lo,hi]=ROOMS[S.bRoom];
+  let h='<thead><tr><th class="part">倍音</th>'+[1,2,3,4,5,6,7].map(p=>`<th class="pos${p>=lo&&p<=hi?' inroom':''}" scope="col">${p}</th>`).join('')+'</tr></thead><tbody>';
+  for(const o of OPEN){
+    h+=`<tr class="${o.flat?'flat':''}"><th class="part" scope="row">${o.p}</th>`;
+    for(let p=1;p<=7;p++){const m=o.m-(p-1);
+      if(!cellOK(o,p)){h+='<td class="cell oor" aria-hidden="true"></td>';continue}
+      const s=sh[m%12];let cls=s?s.cls:'';if(s&&s.ct)cls+=' ct';if(p<lo||p>hi)cls+=' dim';
+      if(bHit&&bHit.m===m&&bHit.p===p)cls+=' hit';
+      h+=`<td class="cell ${cls}" tabindex="0" data-m="${m}" data-p="${p}">${nm(m%12,c.sp)}<small>${Math.floor(m/12)-1}${s?'・'+s.label:''}</small></td>`}
+    h+='</tr>'}
+  $('bBoard').innerHTML=h+'</tbody>';
+  $('bBoard').querySelectorAll('.cell:not(.oor)').forEach(td=>{const go=()=>{bHit={m:+td.dataset.m,p:+td.dataset.p};tone(bHit.m);renderBox()};td.onclick=go;td.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();go()}}});
+  const key=keyInfo(c),kn=nm(key.tonic,key.tonic)+(key.minor?'マイナー':'');
+  $('bLegend').innerHTML=S.bShape==='tones'||S.bShape==='scale'
+    ?`<span><i class="r-root"></i>ルート</span><span><i class="r-guide"></i>3度・7度</span><span><i class="r-tone"></i>その他のコードトーン</span>${S.bShape==='scale'?'<span><i class="r-scale"></i>スケール音</span>':''}<span>数字はオクターブ・度数</span>`
+    :`<span><i class="r-root"></i>キー（${esc(kn)}）の主音</span><span><i class="r-scale"></i>${S.bShape==='blues'?'ブルース':'ペンタトニック'}の音</span><span><i style="box-shadow:inset 0 0 0 3px var(--tone)"></i>いま鳴っているコードの音</span>`;
+  const path=pathOf(c);
+  $('bPath').innerHTML=path.map(x=>`<button class="pn ${x.out?'out':x.s.cls}${bHit&&bHit.m===x.m&&bHit.p===x.p?' hit':''}" data-m="${x.m}" data-p="${x.p}" title="${x.out?'この部屋では出ない':''}">${mName(x.m,c)}<small>${x.p||'–'}${x.out?' 外':''}</small></button>`).join('');
+  $('bPath').querySelectorAll('.pn').forEach(b=>b.onclick=()=>{bHit={m:+b.dataset.m,p:+b.dataset.p};tone(bHit.m);renderBox()});
+  const outs=path.filter(x=>x.out).length;
+  $('bPathNote').textContent=outs?`点線の${outs}音はこの部屋の外（括弧の数字のポジション）`:'';
+  if(!phTimer)$('bTip').innerHTML=`${esc(ROOM_NAME[S.bRoom])}で、${S.bShape==='tones'?'<strong>コードトーン</strong>':S.bShape==='scale'?'<strong>コードのスケール</strong>':`<strong>${esc(kn)}の${S.bShape==='blues'?'ブルース':'ペンタ'}</strong>`}だけを使って吹いてみよう。部屋の外（うすい音）には出ないのがルールです。`;
+  renderPhrases();
+}
+function renderPhrases(){
+  $('bPhrases').innerHTML=PHRASES.map((f,i)=>`<button class="phr" data-i="${i}" aria-pressed="${i===S.bPh}"><span class="lv">${i+1}</span><span class="nm">${esc(f.n)}</span><span class="cd">${esc(f.cd)}・部屋${f.room}</span><span class="ns">${f.ns.filter(x=>x[0]).map(x=>`${x[0]}(${x[1]})`).join(' ')}</span></button>`).join('');
+  $('bPhrases').querySelectorAll('.phr').forEach(b=>b.onclick=()=>selectPhrase(+b.dataset.i));
+  const f=PHRASES[S.bPh],d=$('bPhDetail');
+  if(!f){d.hidden=true;return}
+  d.hidden=false;
+  d.innerHTML=`<div><b>${S.bPh+1}. ${esc(f.n)}</b>　<span class="src">${esc(f.src)}</span></div><div>${esc(f.tip)}</div>
+    <div class="row"><button class="btn" id="phPlay">${phTimer&&!phLoop?'止める':'お手本を聴く'}</button><button class="btn ghost" id="phLoop">${phTimer&&phLoop?'止める':'交代でくり返す'}</button></div>
+    <div class="src">「交代でくり返す」は、お手本のあと同じ長さだけあなたの番（クリックだけ）になり、それをくり返します。伴奏は「${esc(f.cd)}」に合わせてあります。</div>`;
+  $('phPlay').onclick=()=>{if(phTimer){phStop();renderBox()}else phStart(false)};
+  $('phLoop').onclick=()=>{if(phTimer){phStop();renderBox()}else phStart(true)};
+}
+function selectPhrase(i){
+  phStop();S.bPh=i;const f=PHRASES[i];
+  if(playing)stop();
+  S.bRoom=f.room;S.prog=f.prog;S.key=f.key;$('prog').value=S.prog;$('key').value=S.key;save();
+  build();renderStrip();cur=Math.min(f.ci,chords.length-1);bHit=null;renderChord();renderBox();
+}
+// ---- フレーズのお手本 ----
+let phTimer=null,phLoop=false,phUi=[];
+function phStop(){if(phTimer){clearTimeout(phTimer);phTimer=null;phUi.forEach(clearTimeout);phUi=[];
+  if(demoGain){const now=ctx.currentTime;demoGain.gain.cancelScheduledValues(now);demoGain.gain.setValueAtTime(0,now);demoGain.gain.setValueAtTime(S.demoVol/100*.9,now+.3)}}}
+function phStart(loop){
+  const f=PHRASES[S.bPh];if(!f)return;
+  if(playing)stop();ensureCtx();phLoop=loop;
+  const spb=60/S.tempo,dsw=spb*demoSw()/100,slotT=s=>Math.floor(s/2)*spb+(s%2?dsw:0);
+  const len=f.ns.reduce((a,x)=>a+x[2],0),bars=Math.ceil(len/8);
+  const ui=(t,fn)=>phUi.push(setTimeout(fn,Math.max(0,(t-ctx.currentTime)*1000)));
+  const cycle=(t0,first)=>{
+    if(first){for(let b=0;b<4;b++){click(t0+b*spb,b===0);const k=4-b;ui(t0+b*spb,()=>{$('bTip').innerHTML=`<span class="countin">カウント ${k}</span>`})}t0+=4*spb}
+    ui(t0,()=>{$('bTip').innerHTML='<strong>お手本</strong>を聴いて、ポジションを目で追おう'});
+    let s=0;for(const [nmS,p,d] of f.ns){
+      if(nmS){const m=midiOf(nmS),t=t0+slotT(s);horn(m,t,(slotT(s+d)-slotT(s))*.95,demoGain);ui(t,()=>{bHit={m,p};renderBox()})}
+      s+=d}
+    let end=t0+bars*4*spb;
+    if(loop){ui(end,()=>{bHit=null;$('bTip').innerHTML='<strong>あなたの番</strong>：同じフレーズを吹いてみよう';renderBox()});
+      for(let b=0;b<bars*4;b++)click(end+b*spb,b%4===0);
+      end+=bars*4*spb;
+      phTimer=setTimeout(()=>{phUi=[];cycle(end,false)},Math.max(0,(end-ctx.currentTime-.3)*1000));
+    }else phTimer=setTimeout(()=>{phTimer=null;phUi=[];bHit=null;renderBox()},Math.max(0,(end-ctx.currentTime)*1000+150));
+  };
+  cycle(ctx.currentTime+.15,true);renderPhrases();
+}
+$('bPathPlay').onclick=()=>{
+  const c=chords[cur];if(!c)return;phStop();if(playing)stop();ensureCtx();
+  const path=pathOf(c).filter(x=>!x.out),seq=path.concat(path.slice(0,-1).reverse()),spb=60/S.tempo;
+  const t0=ctx.currentTime+.1;phTimer=-1;
+  seq.forEach((x,i)=>{const t=t0+i*spb/2;horn(x.m,t,spb/2*.95,demoGain);phUi.push(setTimeout(()=>{bHit={m:x.m,p:x.p};renderBox()},(t-ctx.currentTime)*1000))});
+  phUi.push(setTimeout(()=>{phTimer=null;phUi=[];bHit=null;renderBox()},(seq.length*spb/2+.3)*1000));
+};
 
 // ================= 起動 =================
 build();renderStrip();renderChord();renderStats();renderTiming();setView(location.hash.slice(1)||S.view);
