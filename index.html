@@ -290,6 +290,18 @@ select,.txt,textarea{border-radius:4px}
 .stage .tip{color:var(--ink)}
 footer{font-family:var(--f-body);letter-spacing:.04em;border-top:1px solid var(--line);padding-top:10px}
 /* ボックス練習 */
+.bstack{display:flex;flex-direction:column;gap:14px}
+.bhead{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.bhead .bprog{flex:1 1 320px}
+.bphrow{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end}
+.bphrow .field{flex:1 1 240px}
+.stage .bphrow label,.stage .field .lbl{color:var(--jacket-muted)}
+.stage .bnote{font-size:13px;color:var(--jacket-muted)}
+.stage .ns{color:var(--jacket-muted)}
+.stage .btn.ghost{color:var(--on-jacket)}
+#bCtlSlot .controls{margin:0}
+.stage select,.stage .chip{color:var(--ink)}
+
 .bprog{display:flex;flex-wrap:wrap;gap:4px}
 .bprog .pb{flex:1 0 calc(25% - 4px);min-width:64px;overflow:hidden;white-space:nowrap;display:flex;gap:4px;border:1px solid var(--jacket-line);border-radius:4px;padding:6px 8px;font-family:var(--f-display);font-size:18px;color:var(--jacket-muted);align-items:baseline}
 @media (max-width:520px){ .bprog .pb{min-width:0;font-size:14px;padding:5px 5px;gap:2px} .bprog .pb small{font-size:9px} }
@@ -310,15 +322,6 @@ footer{font-family:var(--f-body);letter-spacing:.04em;border-top:1px solid var(-
 .pn small{font-family:var(--f-mono);font-size:11px;opacity:.85}
 .pn.out{background:transparent;border:1px dashed var(--line);color:var(--muted)}
 .pn.hit{box-shadow:0 0 0 3px var(--hit)}
-.phr{display:grid;grid-template-columns:2em 1fr;gap:4px 10px;border:1px solid var(--line);background:var(--sunk);border-radius:4px;padding:8px 10px;cursor:pointer;text-align:left;color:var(--ink);width:100%}
-.phr[aria-pressed="true"]{border-color:var(--brass);background:var(--brass-soft)}
-.phr .lv{font-family:var(--f-display);font-size:18px;font-weight:700;color:var(--brass);grid-row:span 3}
-.phr .nm{font-weight:700;font-size:14px}
-.phr .cd{font-size:12px;color:var(--muted)}
-.phr .ns{font-family:var(--f-mono);font-size:12px;overflow-wrap:anywhere}
-.phlist{display:flex;flex-direction:column;gap:6px}
-.phdetail{background:var(--sunk);border-radius:4px;padding:10px 12px;font-size:14px;display:flex;flex-direction:column;gap:8px}
-.phdetail .src{font-size:12px;color:var(--muted)}
 @media (prefers-reduced-motion:reduce){ *{transition:none!important} }
 </style>
 
@@ -359,6 +362,7 @@ footer{font-family:var(--f-body);letter-spacing:.04em;border-top:1px solid var(-
     <div class="field"><label for="vol">伴奏の音量</label><input id="vol" type="range" min="0" max="100" value="70" style="width:110px"></div>
     <button class="play" id="play"><svg viewBox="0 0 20 20" fill="currentColor"><path d="M5 3l12 7-12 7z"/></svg><span>再生</span></button>
   </section>
+  <div id="ctlHome" hidden></div>
 
   <!-- 伴奏で練習 -->
   <main class="grid" id="view-practice">
@@ -405,60 +409,55 @@ footer{font-family:var(--f-body);letter-spacing:.04em;border-top:1px solid var(-
 
 
   <!-- ボックス練習 -->
-  <main class="grid" id="view-box" hidden>
-    <div class="col">
-      <section class="panel stage o1" aria-live="polite">
-        <div class="now"><div class="chord sm" id="bChord"></div></div>
-        <div class="bprog" id="bProg" aria-label="コード進行"></div>
-        <div class="beats"><span class="beat"></span><span class="beat"></span><span class="beat"></span><span class="beat"></span><span class="barno" id="bBarno"></span></div>
-        <div class="target" id="bTip"></div>
-      </section>
-      <section class="panel o2">
-        <div class="maphead"><h2 id="bPhTitle">フレーズ</h2>
-          <button class="btn" id="bGen">ボックスからフレーズを作る</button></div>
-        <div class="staff bstaff" id="bStaff" role="img" aria-label="フレーズの楽譜（ヘ音記号）"></div>
-        <div class="ns" id="bPhNotes"></div>
-        <div class="field"><span class="lbl">再生ボタンで伴奏をかけたとき</span>
-          <div class="seg" id="bMode">
-            <button class="chip" data-v="cr">お手本→あなた（交代）</button>
-            <button class="chip" data-v="along">お手本といっしょ</button>
-            <button class="chip" data-v="none">伴奏だけ</button>
-          </div></div>
-        <div class="row"><button class="btn ghost" id="phPlay">お手本だけ聴く</button><span class="status" id="bPhSrc"></span></div>
-        <div class="tip" id="bPhTip"></div>
-      </section>
-      <section class="panel o4">
-        <h2>練習フレーズ集（上から順に難しくなる）</h2>
-        <div class="phlist" id="bPhrases"></div>
-      </section>
-    </div>
-    <div class="col">
-      <section class="panel o3">
-        <div class="maphead"><h2>ボックス（部屋）</h2></div>
-        <div class="field"><span class="lbl">部屋（使うポジションの範囲）</span>
-          <div class="seg" id="bRoom">
-            <button class="chip" data-v="A">A：1〜4</button>
-            <button class="chip" data-v="B">B：3〜6</button>
-            <button class="chip" data-v="C">C：4〜7</button>
-            <button class="chip" data-v="all">全部</button>
-          </div></div>
-        <div class="field"><span class="lbl">型（光らせる音）</span>
-          <div class="seg" id="bShape">
-            <button class="chip" data-v="tones">コードトーン</button>
-            <button class="chip" data-v="scale">コードのスケール</button>
-            <button class="chip" data-v="penta">キーのペンタ</button>
-            <button class="chip" data-v="blues">キーのブルース</button>
-          </div></div>
-        <div class="scroll"><table class="slide" id="bBoard"></table></div>
-        <div class="legend" id="bLegend"></div>
-        <p class="status">音域はA♭2（ヘ音記号の第1間）〜C5です。点線の段（第7倍音）は低めに鳴るので、スライドを少し内側へ。1ポジションの第7倍音は使いません。</p>
-      </section>
-      <section class="panel o5">
-        <h2>この部屋での上りの順番（タップで音）</h2>
-        <div class="pathrow" id="bPath"></div>
-        <div class="row"><button class="btn ghost" id="bPathPlay">上り下りを聴く</button><span class="status" id="bPathNote"></span></div>
-      </section>
-    </div>
+  <main class="bstack" id="view-box" hidden>
+    <section class="panel stage" aria-live="polite">
+      <div class="bhead"><div class="chord sm" id="bChord"></div><div class="bprog" id="bProg" aria-label="コード進行"></div></div>
+      <div class="beats"><span class="beat"></span><span class="beat"></span><span class="beat"></span><span class="beat"></span><span class="barno" id="bBarno"></span></div>
+      <div class="staff bstaff" id="bStaff" role="img" aria-label="お手本のフレーズの楽譜（ヘ音記号）"></div>
+      <div class="bphrow">
+        <div class="field"><label for="bPhSel" id="bPhTitle">練習フレーズ（レベル）</label><select id="bPhSel"></select></div>
+        <button class="btn" id="bGen">ボックスから作る</button>
+        <button class="btn ghost" id="phPlay">お手本だけ聴く</button>
+      </div>
+      <div class="field"><span class="lbl">再生ボタンで伴奏をかけたとき</span>
+        <div class="seg" id="bMode">
+          <button class="chip" data-v="cr">お手本→あなた（交代）</button>
+          <button class="chip" data-v="along">お手本といっしょ</button>
+          <button class="chip" data-v="none">伴奏だけ</button>
+        </div></div>
+      <div class="target" id="bTip"></div>
+      <div class="bnote"><span id="bPhSrc"></span> <span id="bPhTip"></span></div>
+      <div class="ns" id="bPhNotes"></div>
+    </section>
+    <div id="bCtlSlot"></div>
+    <section class="panel">
+      <h2>この部屋での上りの順番（タップで音）</h2>
+      <div class="pathrow" id="bPath"></div>
+      <div class="row"><button class="btn ghost" id="bPathPlay">上り下りを聴く</button><span class="status" id="bPathNote"></span></div>
+    </section>
+    <section class="panel">
+      <h2>ポジション盤</h2>
+      <div class="scroll"><table class="slide" id="bBoard"></table></div>
+      <div class="legend" id="bLegend"></div>
+      <p class="status">音域はA♭2（ヘ音記号の第1間）〜C5です。点線の段（第7倍音）は低めに鳴るので、スライドを少し内側へ。1ポジションの第7倍音は使いません。</p>
+    </section>
+    <section class="panel">
+      <h2>ボックスの設定</h2>
+      <div class="field"><span class="lbl">部屋（使うポジションの範囲）</span>
+        <div class="seg" id="bRoom">
+          <button class="chip" data-v="A">A：1〜4</button>
+          <button class="chip" data-v="B">B：3〜6</button>
+          <button class="chip" data-v="C">C：4〜7</button>
+          <button class="chip" data-v="all">全部</button>
+        </div></div>
+      <div class="field"><span class="lbl">型（光らせる音・フレーズに使う音）</span>
+        <div class="seg" id="bShape">
+          <button class="chip" data-v="tones">コードトーン</button>
+          <button class="chip" data-v="scale">コードのスケール</button>
+          <button class="chip" data-v="penta">キーのペンタ</button>
+          <button class="chip" data-v="blues">キーのブルース</button>
+        </div></div>
+    </section>
   </main>
 
   <!-- リズム -->
@@ -776,6 +775,7 @@ function setView(v){
   S.view=v;save();
   for(const x of ['practice','box','rhythm','score']){$('view-'+x).hidden=x!==v;$('tab-'+x).setAttribute('aria-selected',x===v)}
   $('controls').hidden=v==='score';
+  if(v==='box')$('bCtlSlot').appendChild($('controls'));else $('ctlHome').before($('controls'));
   if(location.hash!=='#'+v)try{history.replaceState(null,'','#'+v)}catch(e){}
   if(v==='rhythm')renderRhythm();
   if(v==='box'){if(!bPhrase)bPhrase=S.bPh>=0&&PHRASES[S.bPh]?presetPhrase(S.bPh):genPhrase();renderBox();renderBStaff()}
@@ -1492,7 +1492,6 @@ function genPhrase(){
 function setPhrase(ph){bPhrase=ph;bNow=-1;bHit=null;renderBox();renderBStaff()}
 function renderPhraseInfo(){
   const ph=bPhrase;
-  $('bPhTitle').textContent=ph?ph.title:'フレーズ';
   $('bPhSrc').textContent=ph?ph.src:'';
   $('bPhTip').textContent=ph?ph.tip:'「ボックスからフレーズを作る」を押すか、下のフレーズ集から選んでください。';
   $('bPhNotes').textContent=ph?ph.ev.filter(e=>e.m!=null).map(e=>`${e.name}(${e.p})`).join(' '):'';
@@ -1529,14 +1528,15 @@ function renderBox(){
   renderPhraseInfo();renderPhrases();
 }
 function renderPhrases(){
-  $('bPhrases').innerHTML=PHRASES.map((f,i)=>`<button class="phr" data-i="${i}" aria-pressed="${i===S.bPh}"><span class="lv">${i+1}</span><span class="nm">${esc(f.n)}</span><span class="cd">${esc(f.cd)}・部屋${f.room}</span><span class="ns">${esc(f.src)}</span></button>`).join('');
-  $('bPhrases').querySelectorAll('.phr').forEach(b=>b.onclick=()=>selectPhrase(+b.dataset.i));
+  const sel=$('bPhSel');
+  sel.innerHTML=`<option value="-1">ボックスから作ったフレーズ（自動）</option>`+PHRASES.map((f,i)=>`<option value="${i}">レベル${i+1}：${esc(f.n)}（${esc(f.cd)}・部屋${f.room}）</option>`).join('');
+  sel.value=String(S.bPh>=0&&PHRASES[S.bPh]?S.bPh:-1);
+  sel.onchange=()=>{const i=+sel.value;if(i>=0)selectPhrase(i);else $('bGen').click()};
 }
 function selectPhrase(i){
   phStop();if(playing)stop();S.bPh=i;const f=PHRASES[i];
   S.bRoom=f.room;S.prog=f.prog;S.key=f.key;$('prog').value=S.prog;$('key').value=S.key;save();
   build();renderStrip();cur=Math.min(f.ci,chords.length-1);renderChord();setPhrase(presetPhrase(i));
-  $('bPhTitle').scrollIntoView({block:'nearest',behavior:'smooth'});
 }
 $('bGen').onclick=()=>{phStop();const was=playing;if(was)stop();S.bPh=-1;save();if(!was)cur=S.prog==='cycle'?cur:0;setPhrase(genPhrase());if(!was)renderChord()};
 // ---- 伴奏といっしょに鳴らす（scheduleBeat から呼ぶ） ----
